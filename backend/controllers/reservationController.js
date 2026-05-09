@@ -2,6 +2,7 @@
 import Client from '../models/Client.js';
 import Barber from '../models/Barber.js';
 import Activity from '../models/Activity.js';
+import { send as waSend } from '../utils/whatsappManager.js';
 
 export const getReservations = async (req, res) => {
   try {
@@ -87,6 +88,31 @@ export const updateReservationStatus = async (req, res) => {
 
     reservation.status = status;
     await reservation.save();
+
+    if (status === 'cancelled' && req.userType === 'admin') {
+      try {
+        const shopId = reservation.shop.toString();
+        await reservation.populate([
+          { path: 'client', select: 'name phone' },
+          { path: 'barber', select: 'name' },
+          { path: 'activity', select: 'title' },
+          { path: 'shop', select: 'name' },
+        ]);
+        const { client, barber, activity, shop } = reservation;
+        const msg =
+          `*TURNO CANCELADO*\n\n` +
+          `Hola ${client.name}, tu turno en *${shop.name}* fue cancelado.\n\n` +
+          `Servicio: ${activity.title}\n` +
+          `Barbero: ${barber.name}\n` +
+          `Fecha: ${reservation.date}\n` +
+          `Hora: ${reservation.time}\n\n` +
+          `Podes reservar un nuevo turno cuando quieras.`;
+        waSend(shopId, client.phone, msg).catch((e) => console.warn('[WA] Error enviando cancelacion:', e.message));
+      } catch (e) {
+        console.warn('[WA] Error preparando mensaje de cancelacion:', e.message);
+      }
+    }
+
     res.json({ ok: true, reservation });
   } catch (error) {
     res.status(500).json({ ok: false, msg: 'Error actualizando turno' });

@@ -17,6 +17,12 @@ export const createSchedule = async (req, res) => {
       return res.status(403).json({ ok: false, msg: 'Solo administradores pueden crear horarios' });
     }
     const { barber, weekday, startTime, endTime, slotMinutes, shop } = req.body;
+
+    const existing = await Schedule.findOne({ barber, weekday });
+    if (existing) {
+      return res.status(400).json({ ok: false, msg: 'El barbero ya tiene un horario asignado para ese día' });
+    }
+
     const schedule = new Schedule({
       shop: shop || req.user.shop,
       barber,
@@ -35,10 +41,19 @@ export const createSchedule = async (req, res) => {
 export const updateSchedule = async (req, res) => {
   try {
     const { id } = req.params;
-    const schedule = await Schedule.findByIdAndUpdate(id, req.body, { new: true });
-    if (!schedule) {
+    const current = await Schedule.findById(id);
+    if (!current) {
       return res.status(404).json({ ok: false, msg: 'Horario no encontrado' });
     }
+
+    const newBarber = req.body.barber || current.barber;
+    const newWeekday = req.body.weekday !== undefined ? req.body.weekday : current.weekday;
+    const conflict = await Schedule.findOne({ barber: newBarber, weekday: newWeekday, _id: { $ne: id } });
+    if (conflict) {
+      return res.status(400).json({ ok: false, msg: 'El barbero ya tiene un horario asignado para ese día' });
+    }
+
+    const schedule = await Schedule.findByIdAndUpdate(id, req.body, { new: true });
     res.json({ ok: true, schedule });
   } catch (error) {
     res.status(500).json({ ok: false, msg: 'Error actualizando horario' });

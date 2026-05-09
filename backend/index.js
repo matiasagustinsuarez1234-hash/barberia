@@ -38,6 +38,7 @@ const api = async () => {
 
   server.use(express.json());
   server.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+  console.log("URI:", process.env.MONGO_URI);
   await dbMongo();
 
   // Auto-restore WhatsApp sessions for shops that already have a saved session

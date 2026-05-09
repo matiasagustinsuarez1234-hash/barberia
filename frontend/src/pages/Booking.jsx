@@ -4,6 +4,7 @@ import api from '../utils/api';
 
 const MONTHS_ES = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
 const DAYS_ES   = ['DOM','LUN','MAR','MIE','JUE','VIE','SAB'];
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace('/api', '');
 
 function generateDates() {
   const today = new Date();
@@ -87,7 +88,8 @@ export default function Booking() {
       .then((r) => {
         setShopId(r.data.shop._id);
         setShopName(r.data.shop.name);
-        setShopLogo(r.data.shop.logo || r.data.shop.image || '');
+        const rawLogo = r.data.shop.logo || r.data.shop.image || '';
+        setShopLogo(rawLogo ? `${API_BASE}${rawLogo}` : '');
       })
       .catch(() => setShopError('Barberia no encontrada'));
   }, [shopSlug]);
@@ -187,6 +189,7 @@ export default function Booking() {
         phone: clientPhone,
         name: clientName,
         email: clientEmail,
+        shopSlug,
       });
       if (resp.data.clientExists) {
         await _doBook({ isNew: false });
