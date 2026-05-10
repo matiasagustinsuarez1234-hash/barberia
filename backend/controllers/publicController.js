@@ -29,7 +29,7 @@ export const getPublicBarbers = async (req, res) => {
     const { shop } = req.query;
     const filter = { active: true };
     if (shop) filter.shop = shop;
-    const barbers = await Barber.find(filter).select('name specialties').sort('name');
+    const barbers = await Barber.find(filter).select('name specialties surchargeType surchargeValue').sort('name');
     res.json({ ok: true, barbers });
   } catch (error) {
     res.status(500).json({ ok: false, msg: 'Error obteniendo barberos' });
@@ -50,10 +50,13 @@ export const getPublicActivities = async (req, res) => {
 
 export const getAvailableSlots = async (req, res) => {
   try {
-    const { barber, date } = req.query;
-    if (!barber || !date) {
-      return res.status(400).json({ ok: false, msg: 'Faltan parametros barber y date' });
+    const { barber, date, activity: activityId } = req.query;
+    if (!barber || !date || !activityId) {
+      return res.status(400).json({ ok: false, msg: 'Faltan parametros barber, date y activity' });
     }
+
+    const activity = await Activity.findById(activityId);
+    if (!activity) return res.status(404).json({ ok: false, msg: 'Actividad no encontrada' });
 
     const dateObj = new Date(date + 'T00:00:00');
     const weekday = dateObj.getUTCDay();
@@ -69,15 +72,33 @@ export const getAvailableSlots = async (req, res) => {
       barber,
       date,
       status: { $ne: 'cancelled' },
-    }).select('time');
-    const takenTimes = new Set(taken.map((r) => r.time));
+    }).populate('activity', 'durationMinutes');
 
-    const available = slots.filter((s) => !takenTimes.has(s));
+    const takenRanges = taken.map((r) => {
+      const start = timeToMinutes(r.time);
+      return { start, end: start + (r.activity?.durationMinutes ?? schedule.slotMinutes) };
+    });
+
+    const scheduleEnd = timeToMinutes(schedule.endTime);
+    const actDuration = activity.durationMinutes;
+
+    const available = slots.filter((slot) => {
+      const start = timeToMinutes(slot);
+      const end = start + actDuration;
+      if (end > scheduleEnd) return false;
+      return !takenRanges.some((r) => start < r.end && end > r.start);
+    });
+
     res.json({ ok: true, slots: available, slotMinutes: schedule.slotMinutes });
   } catch (error) {
     res.status(500).json({ ok: false, msg: 'Error obteniendo slots' });
   }
 };
+
+function timeToMinutes(time) {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+}
 
 function generateSlots(startTime, endTime, slotMinutes) {
   const slots = [];

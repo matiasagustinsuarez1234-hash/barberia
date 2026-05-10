@@ -369,7 +369,7 @@ function TabTurnos() {
 function TabBarberos() {
   const [barbers, setBarbers] = useState([]);
   const [subscription, setSubscription] = useState(null);
-  const [form, setForm] = useState({ name: '', whatsapp: '', specialties: '' });
+  const [form, setForm] = useState({ name: '', whatsapp: '', specialties: '', surchargeType: 'none', surchargeValue: 0 });
   const [editing, setEditing] = useState(null);
   const [msg, setMsg] = useState('');
   const [msgType, setMsgType] = useState('error');
@@ -394,7 +394,7 @@ function TabBarberos() {
     } catch (err) { setMsg(err.response?.data?.msg || 'Error'); setMsgType('error'); }
   };
 
-  const editBarber = (b) => { setEditing(b._id); setForm({ name: b.name, whatsapp: b.whatsapp || '', specialties: (b.specialties || []).join(', ') }); };
+  const editBarber = (b) => { setEditing(b._id); setForm({ name: b.name, whatsapp: b.whatsapp || '', specialties: (b.specialties || []).join(', '), surchargeType: b.surchargeType || 'none', surchargeValue: b.surchargeValue || 0 }); };
   const toggleActive = async (b) => { await api.put(`/barbers/${b._id}`, { active: !b.active }); load(); };
   const deleteBarber = async (id) => { if (!confirm('Eliminar barbero?')) return; await api.delete(`/barbers/${id}`); load(); };
 
@@ -424,16 +424,43 @@ function TabBarberos() {
         <input name="name" placeholder="Nombre *" value={form.name} onChange={handleChange} required />
         <input name="whatsapp" placeholder="WhatsApp (ej: 5491100000000)" value={form.whatsapp} onChange={handleChange} />
         <input name="specialties" placeholder="Especialidades (separadas por coma)" value={form.specialties} onChange={handleChange} />
+        <div className="field-row">
+          <label style={{ fontSize: '0.9rem', whiteSpace: 'nowrap' }}>Recargo</label>
+          <select name="surchargeType" value={form.surchargeType} onChange={handleChange} style={{ flex: 1 }}>
+            <option value="none">Sin recargo</option>
+            <option value="percent">Porcentaje (%)</option>
+            <option value="fixed">Monto fijo ($)</option>
+          </select>
+          {form.surchargeType !== 'none' && (
+            <input
+              name="surchargeValue"
+              type="number"
+              min="0"
+              placeholder={form.surchargeType === 'percent' ? 'Ej: 10' : 'Ej: 2000'}
+              value={form.surchargeValue}
+              onChange={handleChange}
+              style={{ width: '100px' }}
+            />
+          )}
+        </div>
         <div className="form-actions">
           <button type="submit" className="btn-confirm" disabled={!editing && atLimit}>{editing ? 'Guardar' : 'Agregar'}</button>
-          {editing && <button type="button" className="btn-secondary" onClick={() => { setEditing(null); setForm({ name: '', whatsapp: '', specialties: '' }); }}>Cancelar</button>}
+          {editing && <button type="button" className="btn-secondary" onClick={() => { setEditing(null); setForm({ name: '', whatsapp: '', specialties: '', surchargeType: 'none', surchargeValue: 0 }); }}>Cancelar</button>}
         </div>
         {msg && <p className={msgType === 'error' ? 'error-text' : 'success-text'}>{msg}</p>}
       </form>
       <div className="admin-list">
         {barbers.map((b) => (
           <div key={b._id} className={`admin-list-item ${!b.active ? 'inactive' : ''}`}>
-            <div><strong>{b.name}</strong>{b.specialties?.length > 0 && <span className="tag-list">{b.specialties.join(', ')}</span>}</div>
+            <div>
+              <strong>{b.name}</strong>
+              {b.specialties?.length > 0 && <span className="tag-list">{b.specialties.join(', ')}</span>}
+              {b.surchargeType && b.surchargeType !== 'none' && b.surchargeValue > 0 && (
+                <span className="tag-list">
+                  +{b.surchargeType === 'percent' ? `${b.surchargeValue}%` : `$${Number(b.surchargeValue).toLocaleString('es-AR')}`}
+                </span>
+              )}
+            </div>
             <div className="item-actions">
               <button type="button" className="btn-icon" onClick={() => toggleActive(b)} title={b.active ? 'Desactivar' : 'Activar'}>{b.active ? '✓' : '✗'}</button>
               <button type="button" className="btn-icon" onClick={() => editBarber(b)}>✏</button>

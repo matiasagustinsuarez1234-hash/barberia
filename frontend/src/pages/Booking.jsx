@@ -28,6 +28,18 @@ function toDateKey(d) {
   return `${y}-${m}-${day}`;
 }
 
+function calcFinalPrice(basePrice, barber) {
+  if (!barber || barber.surchargeType === 'none' || !barber.surchargeValue) return basePrice;
+  if (barber.surchargeType === 'percent') return Math.round(basePrice * (1 + barber.surchargeValue / 100));
+  return basePrice + barber.surchargeValue;
+}
+
+function surchargeLabel(barber) {
+  if (!barber || barber.surchargeType === 'none' || !barber.surchargeValue) return null;
+  if (barber.surchargeType === 'percent') return `+${barber.surchargeValue}%`;
+  return `+$${Number(barber.surchargeValue).toLocaleString('es-AR')}`;
+}
+
 function addMinutes(timeStr, minutes) {
   const [h, m] = timeStr.split(':').map(Number);
   const total = h * 60 + m + minutes;
@@ -111,16 +123,16 @@ export default function Booking() {
   }, [shopId]);
 
   useEffect(() => {
-    if (!selectedBarber || !date) return;
+    if (!selectedBarber || !date || !selectedActivity) return;
     setMsg('');
     setSelectedTime('');
-    api.get(`/public/slots?barber=${selectedBarber._id}&date=${date}`)
+    api.get(`/public/slots?barber=${selectedBarber._id}&date=${date}&activity=${selectedActivity._id}`)
       .then((r) => {
         setSlots(r.data.slots);
         setSlotMinutes(r.data.slotMinutes || 45);
       })
       .catch(() => setMsg('Error cargando horarios'));
-  }, [selectedBarber, date]);
+  }, [selectedBarber, date, selectedActivity]);
 
   // Sincronizar array de integrantes con groupCount
   useEffect(() => {
@@ -374,11 +386,19 @@ export default function Booking() {
             >
               <strong>{b.name}</strong>
               {b.specialties?.length > 0 && <><br /><small>{b.specialties.join(', ')}</small></>}
+              {surchargeLabel(b) && <span className="price-tag">{surchargeLabel(b)}</span>}
             </div>
           ))}
         </div>
 
         {/* Barra horizontal de fechas */}
+        {selectedActivity && selectedBarber && surchargeLabel(selectedBarber) && (
+          <p className="surcharge-note">
+            Precio con {selectedBarber.name}: <strong>${calcFinalPrice(selectedActivity.price, selectedBarber).toLocaleString('es-AR')}</strong>
+            <small> ({surchargeLabel(selectedBarber)} sobre el precio base)</small>
+          </p>
+        )}
+
         <div className="section-title">Fecha</div>
         <div className="date-bar" ref={dateBarRef}>
           {dates.map((d, i) => {

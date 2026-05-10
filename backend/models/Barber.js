@@ -6,6 +6,8 @@ const BarberSchema = new mongoose.Schema({
   active: { type: Boolean, default: true },
   specialties: { type: [String], default: [] },
   whatsapp: { type: String },
+  surchargeType: { type: String, enum: ['none', 'percent', 'fixed'], default: 'none' },
+  surchargeValue: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
 });
 

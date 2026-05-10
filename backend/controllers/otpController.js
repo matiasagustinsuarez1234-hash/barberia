@@ -170,6 +170,17 @@ export const bookExisting = async (req, res) => {
   }
 };
 
+function timeToMinutes(time) {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function minutesToTime(minutes) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${h}:${String(m).padStart(2, '0')}`;
+}
+
 async function _createReservation({ client, shopSlug, barberId, activityId, date, time, notes, additionalMembers, res }) {
   const [barber, activity, shop] = await Promise.all([
     Barber.findById(barberId),
@@ -181,8 +192,24 @@ async function _createReservation({ client, shopSlug, barberId, activityId, date
     return res.status(400).json({ ok: false, msg: 'Datos de reserva invalidos' });
   }
 
-  const conflict = await Reservation.findOne({ barber: barberId, date, time, status: { $ne: 'cancelled' } });
-  if (conflict) {
+  const existingReservations = await Reservation.find({
+    barber: barberId,
+    date,
+    status: { $ne: 'cancelled' },
+  }).populate('activity', 'durationMinutes');
+
+  const takenRanges = existingReservations.map((r) => {
+    const start = timeToMinutes(r.time);
+    return { start, end: start + (r.activity?.durationMinutes ?? 30) };
+  });
+
+  const hasOverlap = (startMin, endMin) =>
+    takenRanges.some((r) => startMin < r.end && endMin > r.start);
+
+  const newStart = timeToMinutes(time);
+  const newEnd = newStart + activity.durationMinutes;
+
+  if (hasOverlap(newStart, newEnd)) {
     return res.status(409).json({ ok: false, msg: 'Ese horario ya fue tomado. Elige otro.' });
   }
 
@@ -195,12 +222,15 @@ async function _createReservation({ client, shopSlug, barberId, activityId, date
   // Verificar conflictos para los turnos adicionales del grupo
   if (additionalMembers?.length) {
     for (const member of additionalMembers) {
-      const c = await Reservation.findOne({ barber: barberId, date, time: member.time, status: { $ne: 'cancelled' } });
-      if (c) {
+      const mStart = timeToMinutes(member.time);
+      const mEnd = mStart + activity.durationMinutes;
+      if (hasOverlap(mStart, mEnd)) {
         return res.status(409).json({ ok: false, msg: `El horario ${member.time} ya fue tomado. Intenta de nuevo.` });
       }
     }
   }
+
+  const endTime = minutesToTime(newEnd);
 
   const reservation = await Reservation.create({
     shop: shop._id,
@@ -209,6 +239,7 @@ async function _createReservation({ client, shopSlug, barberId, activityId, date
     client: client._id,
     date,
     time,
+    endTime,
     notes: notes || '',
     status: 'pending',
   });
@@ -242,19 +273,28 @@ async function _createReservation({ client, shopSlug, barberId, activityId, date
   const populated = await Promise.all(allReservations.map((r) => r.populate(populateFields)));
 
   // Mensaje de confirmacion por WhatsApp
+  let finalPrice = activity.price;
+  if (barber.surchargeType === 'percent' && barber.surchargeValue) {
+    finalPrice = Math.round(activity.price * (1 + barber.surchargeValue / 100));
+  } else if (barber.surchargeType === 'fixed' && barber.surchargeValue) {
+    finalPrice = activity.price + barber.surchargeValue;
+  }
+  const priceLabel = `$${finalPrice.toLocaleString('es-AR')}`;
+
   let confirmMsg = `*TURNO RESERVADO*\n\nHola ${client.name}!\nTu turno en *${shop.name}* fue registrado.\n\n`;
 
   if (additionalMembers?.length) {
     confirmMsg += `*Reservas del grupo:*\n`;
     confirmMsg += `• ${client.name}: ${time}\n`;
     additionalMembers.forEach((m) => { confirmMsg += `• ${m.name}: ${m.time}\n`; });
-    confirmMsg += `\nServicio: ${activity.title}\nBarbero: ${barber.name}\nFecha: ${date}\n\nTe esperamos!`;
+    confirmMsg += `\nServicio: ${activity.title}\nBarbero: ${barber.name}\nFecha: ${date}\nPrecio: ${priceLabel}\n\nTe esperamos!`;
   } else {
     confirmMsg +=
       `Servicio: ${activity.title}\n` +
       `Barbero: ${barber.name}\n` +
       `Fecha: ${date}\n` +
-      `Hora: ${time}\n\n` +
+      `Hora: ${time}\n` +
+      `Precio: ${priceLabel}\n\n` +
       `Te esperamos!`;
   }
 

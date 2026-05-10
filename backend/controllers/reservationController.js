@@ -38,10 +38,26 @@ export const createReservation = async (req, res) => {
       return res.status(400).json({ ok: false, msg: 'Datos de reserva invalidos' });
     }
 
-    const conflict = await Reservation.findOne({ barber, date, time, status: { $ne: 'cancelled' } });
+    const existingReservations = await Reservation.find({
+      barber,
+      date,
+      status: { $ne: 'cancelled' },
+    }).populate('activity', 'durationMinutes');
+
+    const newStart = timeToMinutes(time);
+    const newEnd = newStart + existsActivity.durationMinutes;
+
+    const conflict = existingReservations.some((r) => {
+      const rStart = timeToMinutes(r.time);
+      const rEnd = rStart + (r.activity?.durationMinutes ?? 30);
+      return newStart < rEnd && newEnd > rStart;
+    });
+
     if (conflict) {
       return res.status(409).json({ ok: false, msg: 'Ese horario ya esta tomado' });
     }
+
+    const endTime = minutesToTime(newEnd);
 
     const reservation = new Reservation({
       shop: shop || existsBarber.shop,
@@ -50,6 +66,7 @@ export const createReservation = async (req, res) => {
       client: clientId,
       date,
       time,
+      endTime,
       notes,
       status: 'pending',
     });
@@ -85,6 +102,17 @@ export const createReservation = async (req, res) => {
     res.status(500).json({ ok: false, msg: 'Error creando turno' });
   }
 };
+
+function timeToMinutes(time) {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function minutesToTime(minutes) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${h}:${String(m).padStart(2, '0')}`;
+}
 
 export const updateReservationStatus = async (req, res) => {
   try {
