@@ -9,6 +9,7 @@ const BarbershopSchema = new mongoose.Schema({
   whatsappNumber: { type: String },
   image: { type: String },
   logo: { type: String },
+  areaCode: { type: String, default: '11' },
   active: { type: Boolean, default: true },
   mercadopagoEnabled: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },

@@ -59,8 +59,28 @@ export const createReservation = async (req, res) => {
       { path: 'barber', select: 'name whatsapp' },
       { path: 'activity', select: 'title price' },
       { path: 'client', select: 'name phone' },
+      { path: 'shop', select: 'name whatsappNumber' },
     ]);
     res.status(201).json({ ok: true, reservation: populated });
+
+    // Notificar al admin de la barbería
+    try {
+      const { shop: s, barber: b, activity: a, client: c } = populated;
+      if (s?.whatsappNumber) {
+        const msg =
+          `*Nuevo turno reservado*\n\n` +
+          `Cliente: ${c.name} (${c.phone})\n` +
+          `Servicio: ${a.title}\n` +
+          `Barbero: ${b.name}\n` +
+          `Fecha: ${reservation.date}\n` +
+          `Hora: ${reservation.time}`;
+        waSend(s._id.toString(), s.whatsappNumber, msg).catch((e) =>
+          console.warn('[WA] Error notificando nuevo turno al admin:', e.message),
+        );
+      }
+    } catch (e) {
+      console.warn('[WA] Error preparando notificacion de nuevo turno:', e.message);
+    }
   } catch (error) {
     res.status(500).json({ ok: false, msg: 'Error creando turno' });
   }

@@ -1,7 +1,8 @@
-﻿import { useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthProvider';
+import { normalizeArgPhone } from '../utils/phoneUtils';
 
 export default function Register() {
   const { shopSlug } = useParams();
@@ -10,18 +11,30 @@ export default function Register() {
 
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({ name: '', phone: '', email: '' });
+  const [areaCode, setAreaCode] = useState('11');
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!shopSlug) return;
+    api.get(`/public/shops/slug/${shopSlug}`)
+      .then((r) => setAreaCode(r.data.shop?.areaCode || '11'))
+      .catch(() => {});
+  }, [shopSlug]);
 
   const handleChange = (e) => setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
   const handleSendOtp = async (e) => {
     e.preventDefault();
     setError('');
+    const { phone: normalizedPhone, error: phoneError } = normalizeArgPhone(form.phone, areaCode);
+    if (phoneError) { setError(phoneError); return; }
+    const normalizedForm = { ...form, phone: normalizedPhone };
+    setForm(normalizedForm);
     setLoading(true);
     try {
-      await api.post('/otp/register/send', form);
+      await api.post('/otp/register/send', normalizedForm);
       setStep(2);
     } catch (err) {
       setError(err.response?.data?.msg || 'Error enviando codigo');
@@ -64,12 +77,12 @@ export default function Register() {
             <input
               name="phone"
               type="tel"
-              placeholder="Celular * (ej: 5491100000000)"
+              placeholder={`Celular * (ej: ${areaCode} 2345-6789)`}
               value={form.phone}
               onChange={handleChange}
               required
             />
-            <small className="field-hint">Codigo de pais + codigo de area + numero. Ej: 549 11 1234-5678</small>
+            <small className="field-hint">Ingresa tu numero con caracteristica {areaCode} — el codigo de pais se agrega automaticamente.</small>
             <input
               name="email"
               type="email"

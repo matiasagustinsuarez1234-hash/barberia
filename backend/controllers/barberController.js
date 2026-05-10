@@ -1,5 +1,6 @@
 import Barber from '../models/Barber.js';
 import Reservation from '../models/Reservation.js';
+import { checkBarberLimit } from './subscriptionController.js';
 
 export const getBarbers = async (req, res) => {
   try {
@@ -18,8 +19,13 @@ export const createBarber = async (req, res) => {
       return res.status(403).json({ ok: false, msg: 'Solo administradores pueden crear barberos' });
     }
     const { name, specialties, whatsapp, shop } = req.body;
+    const shopId = shop || req.user.shop;
+    const limit = await checkBarberLimit(shopId);
+    if (!limit.allowed) {
+      return res.status(403).json({ ok: false, msg: limit.msg });
+    }
     const barber = new Barber({
-      shop: shop || req.user.shop,
+      shop: shopId,
       name,
       specialties: specialties || [],
       whatsapp,

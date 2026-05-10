@@ -16,7 +16,7 @@ export const getPublicShops = async (req, res) => {
 export const getShopBySlug = async (req, res) => {
   try {
     const shop = await Barbershop.findOne({ slug: req.params.slug.toLowerCase(), active: true })
-      .select('name address phone whatsappNumber mercadopagoEnabled slug logo image');
+      .select('name address phone whatsappNumber mercadopagoEnabled slug logo image areaCode');
     if (!shop) return res.status(404).json({ ok: false, msg: 'Barberia no encontrada' });
     res.json({ ok: true, shop });
   } catch (error) {

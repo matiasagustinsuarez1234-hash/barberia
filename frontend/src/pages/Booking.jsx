@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../utils/api';
+import { normalizeArgPhone } from '../utils/phoneUtils';
 
 const MONTHS_ES = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
 const DAYS_ES   = ['DOM','LUN','MAR','MIE','JUE','VIE','SAB'];
@@ -48,6 +49,7 @@ export default function Booking() {
   const [shopId, setShopId] = useState(null);
   const [shopName, setShopName] = useState('');
   const [shopLogo, setShopLogo] = useState('');
+  const [shopAreaCode, setShopAreaCode] = useState('11');
   const [shopError, setShopError] = useState('');
 
   const [activities, setActivities] = useState([]);
@@ -88,6 +90,7 @@ export default function Booking() {
       .then((r) => {
         setShopId(r.data.shop._id);
         setShopName(r.data.shop.name);
+        setShopAreaCode(r.data.shop.areaCode || '11');
         const rawLogo = r.data.shop.logo || r.data.shop.image || '';
         setShopLogo(rawLogo ? `${API_BASE}${rawLogo}` : '');
       })
@@ -178,6 +181,9 @@ export default function Booking() {
   const handleClientSubmit = async (e) => {
     e.preventDefault();
     if (!clientName || !clientPhone) return setMsg('Nombre y celular son obligatorios');
+    const { phone: normalizedPhone, error: phoneError } = normalizeArgPhone(clientPhone, shopAreaCode);
+    if (phoneError) return setMsg(phoneError);
+    setClientPhone(normalizedPhone);
     if (isGroup) {
       const empty = groupMembers.slice(1).find((m) => !m.name.trim());
       if (empty) return setMsg('Ingresa el nombre de cada integrante del grupo');
@@ -186,7 +192,7 @@ export default function Booking() {
     setMsg('');
     try {
       const resp = await api.post('/otp/send', {
-        phone: clientPhone,
+        phone: normalizedPhone,
         name: clientName,
         email: clientEmail,
         shopSlug,
@@ -474,12 +480,12 @@ export default function Booking() {
           <input
             className="input-text"
             type="tel"
-            placeholder="Ej: 5491100000000"
+            placeholder={`Ej: ${shopAreaCode} 2345-6789`}
             value={clientPhone}
             onChange={(e) => setClientPhone(e.target.value)}
             required
           />
-          <small className="field-hint">Incluir codigo de pais. Ej: 549 + codigo de area + numero</small>
+          <small className="field-hint">Ingresa tu numero con caracteristica {shopAreaCode} — el codigo de pais se agrega automaticamente.</small>
 
           <div className="section-title">Email (opcional)</div>
           <input

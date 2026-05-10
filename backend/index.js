@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
 import Barbershop from './models/Barbershop.js';
 import { initClient } from './utils/whatsappManager.js';
+import { startReminderJob } from './utils/reminderJob.js';
 
 import { dbMongo } from './database/dbConnection.js';
 import authRoutes from './routes/auth.routes.js';
@@ -15,6 +16,8 @@ import activitiesRoutes from './routes/activities.routes.js';
 import schedulesRoutes from './routes/schedules.routes.js';
 import reservationsRoutes from './routes/reservations.routes.js';
 import clientsRoutes from './routes/clients.routes.js';
+import plansRoutes from './routes/plans.routes.js';
+import subscriptionsRoutes from './routes/subscriptions.routes.js';
 import publicRoutes from './routes/public.routes.js';
 import otpRoutes from './routes/otp.routes.js';
 import whatsappRoutes from './routes/whatsapp.routes.js';
@@ -64,6 +67,10 @@ const api = async () => {
   server.use('/api/schedules', schedulesRoutes);
   server.use('/api/reservations', reservationsRoutes);
   server.use('/api/clients', clientsRoutes);
+  server.use('/api/plans', plansRoutes);
+  server.use('/api/subscriptions', subscriptionsRoutes);
+
+  startReminderJob();
 
   server.listen(API_PORT, () => {
     console.log(`Servidor backend barberia en http://localhost:${API_PORT}`);

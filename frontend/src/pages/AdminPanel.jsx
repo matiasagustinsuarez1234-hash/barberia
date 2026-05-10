@@ -8,14 +8,34 @@ const STATUS_LABEL = { pending: 'Pendiente', confirmed: 'Confirmado', cancelled:
 const STATUS_CLASS = { pending: 'badge-pending', confirmed: 'badge-confirmed', cancelled: 'badge-cancelled' };
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace('/api', '');
 
-const SUPER_TABS = ['Barberias', 'Admins'];
-const SHOP_TABS = ['Turnos', 'Barberos', 'Actividades', 'Horarios', 'Clientes', 'Configuracion', 'WhatsApp'];
+const SUPER_TABS = ['Barberias', 'Admins', 'Planes', 'Suscripciones'];
+const SHOP_TABS = ['Turnos', 'Barberos', 'Actividades', 'Horarios', 'Clientes', 'Configuracion', 'WhatsApp', 'QR'];
 
 export default function AdminPanel() {
   const { role } = useAuth();
   const isSuperAdmin = role === 'superadmin';
   const tabs = isSuperAdmin ? SUPER_TABS : SHOP_TABS;
   const [tab, setTab] = useState(tabs[0]);
+  const [shop, setShop] = useState(null);
+  const [shopLoading, setShopLoading] = useState(true);
+  const [copyMsg, setCopyMsg] = useState('');
+
+  useEffect(() => {
+    if (isSuperAdmin) return;
+    api.get('/shops')
+      .then((r) => setShop(r.data.shops?.[0] || null))
+      .catch(() => {})
+      .finally(() => setShopLoading(false));
+  }, [isSuperAdmin]);
+
+  const shopUrl = shop?.slug ? `${window.location.origin}/${shop.slug}/turnos` : null;
+  const handlePrintQr = () => window.print();
+  const handleCopyUrl = async () => {
+    if (!shopUrl) return;
+    await navigator.clipboard.writeText(shopUrl);
+    setCopyMsg('Copiado al portapapeles');
+    setTimeout(() => setCopyMsg(''), 2500);
+  };
 
   return (
     <div className="admin-card">
@@ -32,6 +52,8 @@ export default function AdminPanel() {
           <>
             {tab === 'Barberias' && <TabBarberias />}
             {tab === 'Admins' && <TabAdmins />}
+            {tab === 'Planes' && <TabPlanes />}
+            {tab === 'Suscripciones' && <TabSuscripciones />}
           </>
         ) : (
           <>
@@ -42,6 +64,7 @@ export default function AdminPanel() {
             {tab === 'Clientes' && <TabClientes />}
             {tab === 'Configuracion' && <TabConfig />}
             {tab === 'WhatsApp' && <TabWhatsApp />}
+            {tab === 'QR' && <TabQR shop={shop} shopLoading={shopLoading} shopUrl={shopUrl} copyMsg={copyMsg} handleCopyUrl={handleCopyUrl} handlePrintQr={handlePrintQr} />}
           </>
         )}
       </div>
@@ -52,7 +75,7 @@ export default function AdminPanel() {
 /* ======= BARBERIAS (superadmin) ======= */
 function TabBarberias() {
   const [shops, setShops] = useState([]);
-  const emptyForm = { name: '', slug: '', cuit: '', address: '', whatsappNumber: '' };
+  const emptyForm = { name: '', slug: '', cuit: '', address: '', whatsappNumber: '', areaCode: '11' };
   const [form, setForm] = useState(emptyForm);
   const [imageFile, setImageFile] = useState(null);
   const [logoFile, setLogoFile] = useState(null);
@@ -89,7 +112,7 @@ function TabBarberias() {
 
   const editShop = (s) => {
     setEditing(s._id);
-    setForm({ name: s.name, slug: s.slug || '', cuit: s.cuit || '', address: s.address || '', whatsappNumber: s.whatsappNumber || '' });
+    setForm({ name: s.name, slug: s.slug || '', cuit: s.cuit || '', address: s.address || '', whatsappNumber: s.whatsappNumber || '', areaCode: s.areaCode || '11' });
     setImageFile(null);
     setLogoFile(null);
     setMsg('');
@@ -125,6 +148,18 @@ function TabBarberias() {
         <input name="cuit" placeholder="CUIT / CUIL / DNI" value={form.cuit} onChange={handleChange} />
         <input name="address" placeholder="Domicilio" value={form.address} onChange={handleChange} />
         <input name="whatsappNumber" placeholder="WhatsApp (ej: 5491100000000)" value={form.whatsappNumber} onChange={handleChange} />
+        <div className="field-row">
+          <label style={{ fontSize: '0.9rem', whiteSpace: 'nowrap' }}>Caracteristica local</label>
+          <input
+            name="areaCode"
+            placeholder="ej: 11, 341, 351"
+            value={form.areaCode}
+            onChange={(e) => setForm((p) => ({ ...p, areaCode: e.target.value.replace(/\D/g, '') }))}
+            style={{ width: '100px' }}
+            title="Codigo de area sin el 0 inicial. Ej: 11 (CABA), 341 (Rosario), 351 (Cordoba)"
+          />
+          <small style={{ color: '#888', fontSize: '0.8rem' }}>Sin el 0. Ej: 11, 341, 351, 387</small>
+        </div>
         <div className="file-upload-row">
           <label className="file-upload-label">
             <span>Imagen de la barberia</span>
@@ -333,11 +368,16 @@ function TabTurnos() {
 /* ======= BARBEROS (shopadmin) ======= */
 function TabBarberos() {
   const [barbers, setBarbers] = useState([]);
+  const [subscription, setSubscription] = useState(null);
   const [form, setForm] = useState({ name: '', whatsapp: '', specialties: '' });
   const [editing, setEditing] = useState(null);
   const [msg, setMsg] = useState('');
+  const [msgType, setMsgType] = useState('error');
 
-  const load = () => api.get('/barbers').then((r) => setBarbers(r.data.barbers)).catch(() => {});
+  const load = () => {
+    api.get('/barbers').then((r) => setBarbers(r.data.barbers)).catch(() => {});
+    api.get('/subscriptions/mine').then((r) => setSubscription(r.data.subscription)).catch(() => {});
+  };
   useEffect(() => { load(); }, []);
   const handleChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
 
@@ -349,26 +389,46 @@ function TabBarberos() {
       editing ? await api.put(`/barbers/${editing}`, payload) : await api.post('/barbers', payload);
       setForm({ name: '', whatsapp: '', specialties: '' });
       setEditing(null);
+      setMsg('');
       load();
-    } catch (err) { setMsg(err.response?.data?.msg || 'Error'); }
+    } catch (err) { setMsg(err.response?.data?.msg || 'Error'); setMsgType('error'); }
   };
 
   const editBarber = (b) => { setEditing(b._id); setForm({ name: b.name, whatsapp: b.whatsapp || '', specialties: (b.specialties || []).join(', ') }); };
   const toggleActive = async (b) => { await api.put(`/barbers/${b._id}`, { active: !b.active }); load(); };
   const deleteBarber = async (id) => { if (!confirm('Eliminar barbero?')) return; await api.delete(`/barbers/${id}`); load(); };
 
+  const maxBarbers = subscription?.plan?.maxBarbers;
+  const atLimit = subscription && barbers.length >= maxBarbers;
+  const overLimit = subscription && barbers.length > maxBarbers;
+
   return (
     <div>
+      {subscription && (
+        <div className={`plan-banner ${atLimit ? 'plan-banner-limit' : ''}`}>
+          <div>
+            <span>Plan: <strong>{subscription.plan?.name}</strong> &mdash; {barbers.length} / {maxBarbers} barbero{maxBarbers !== 1 ? 's' : ''}</span>
+            {subscription.plan?.includesReminders && <span className="plan-tag">Con recordatorios</span>}
+            {overLimit && (
+              <p className="plan-over-msg">
+                Tenes {barbers.length} barberos cargados pero tu plan actual cubre hasta {maxBarbers}.
+                Contacta al administrador para regularizar tu plan.
+                De no hacerlo, el proximo mes se te asignara automaticamente el plan que corresponda a la cantidad de barberos que tenes.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
       <form className="admin-form" onSubmit={handleSubmit}>
         <h3>{editing ? 'Editar Barbero' : 'Nuevo Barbero'}</h3>
         <input name="name" placeholder="Nombre *" value={form.name} onChange={handleChange} required />
         <input name="whatsapp" placeholder="WhatsApp (ej: 5491100000000)" value={form.whatsapp} onChange={handleChange} />
         <input name="specialties" placeholder="Especialidades (separadas por coma)" value={form.specialties} onChange={handleChange} />
         <div className="form-actions">
-          <button type="submit" className="btn-confirm">{editing ? 'Guardar' : 'Agregar'}</button>
+          <button type="submit" className="btn-confirm" disabled={!editing && atLimit}>{editing ? 'Guardar' : 'Agregar'}</button>
           {editing && <button type="button" className="btn-secondary" onClick={() => { setEditing(null); setForm({ name: '', whatsapp: '', specialties: '' }); }}>Cancelar</button>}
         </div>
-        {msg && <p className="error-text">{msg}</p>}
+        {msg && <p className={msgType === 'error' ? 'error-text' : 'success-text'}>{msg}</p>}
       </form>
       <div className="admin-list">
         {barbers.map((b) => (
@@ -730,6 +790,223 @@ function TabWhatsApp() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function TabQR({ shop, shopLoading, shopUrl, copyMsg, handleCopyUrl, handlePrintQr }) {
+  return (
+    <div className="qr-tab">
+      <h3>QR para pedir turnos</h3>
+      <p>Imprimí o compartí este código para que tus clientes lleguen directo a tu página de reservas.</p>
+      <div className="qr-card">
+        <div className="qr-card-header">
+          <div>
+            <p className="qr-label">URL pública</p>
+            {shopLoading ? (
+              <p>Cargando barbería...</p>
+            ) : shop ? (
+              <p className="qr-url">{shopUrl}</p>
+            ) : (
+              <p>No hay slug definido para tu barbería.</p>
+            )}
+          </div>
+          <div className="qr-actions">
+            <button type="button" className="btn-confirm-sm" onClick={handlePrintQr} disabled={shopLoading || !shopUrl}>Imprimir QR</button>
+            <button type="button" className="btn-secondary" onClick={handleCopyUrl} disabled={!shopUrl}>Copiar enlace</button>
+          </div>
+        </div>
+        <div className="qr-card-body">
+          <div className="qr-preview">
+            {shopUrl ? (
+              <QRCode value={shopUrl} size={180} />
+            ) : (
+              <p>Definí un slug en la barbería para generar la URL de turnos.</p>
+            )}
+          </div>
+          {copyMsg && <div className="copy-msg">{copyMsg}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ======= PLANES (superadmin) ======= */
+function TabPlanes() {
+  const [plans, setPlans] = useState([]);
+  const emptyForm = { name: '', description: '', price: '', maxBarbers: 1, includesReminders: false };
+  const [form, setForm] = useState(emptyForm);
+  const [editing, setEditing] = useState(null);
+  const [msg, setMsg] = useState('');
+  const [msgType, setMsgType] = useState('');
+
+  const load = () => api.get('/plans').then((r) => setPlans(r.data.plans)).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setForm((p) => ({ ...p, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMsg('');
+    try {
+      const payload = { ...form, price: Number(form.price), maxBarbers: Number(form.maxBarbers) };
+      editing ? await api.put(`/plans/${editing}`, payload) : await api.post('/plans', payload);
+      setForm(emptyForm);
+      setEditing(null);
+      setMsg(editing ? 'Plan actualizado' : 'Plan creado');
+      setMsgType('success');
+      load();
+    } catch (err) {
+      setMsg(err.response?.data?.msg || 'Error');
+      setMsgType('error');
+    }
+  };
+
+  const editPlan = (p) => {
+    setEditing(p._id);
+    setForm({ name: p.name, description: p.description || '', price: p.price, maxBarbers: p.maxBarbers, includesReminders: p.includesReminders });
+    setMsg('');
+  };
+
+  const deletePlan = async (id) => {
+    if (!confirm('Eliminar plan? Las barberias con este plan quedarán sin plan asignado.')) return;
+    await api.delete(`/plans/${id}`);
+    load();
+  };
+
+  return (
+    <div>
+      <form className="admin-form" onSubmit={handleSubmit}>
+        <h3>{editing ? 'Editar Plan' : 'Nuevo Plan'}</h3>
+        <input name="name" placeholder="Nombre del plan *" value={form.name} onChange={handleChange} required />
+        <input name="description" placeholder="Descripcion (opcional)" value={form.description} onChange={handleChange} />
+        <input name="price" type="number" min="0" placeholder="Precio mensual (ARS) *" value={form.price} onChange={handleChange} required />
+        <div className="field-row">
+          <label>Max. barberos</label>
+          <input name="maxBarbers" type="number" min="1" value={form.maxBarbers} onChange={handleChange} required style={{ width: '80px' }} />
+        </div>
+        <label className="checkbox-label">
+          <input name="includesReminders" type="checkbox" checked={form.includesReminders} onChange={handleChange} />
+          Incluye recordatorios por WhatsApp
+        </label>
+        <div className="form-actions">
+          <button type="submit" className="btn-confirm">{editing ? 'Guardar Cambios' : 'Crear Plan'}</button>
+          {editing && <button type="button" className="btn-secondary" onClick={() => { setEditing(null); setForm(emptyForm); setMsg(''); }}>Cancelar</button>}
+        </div>
+        {msg && <p className={msgType === 'success' ? 'success-text' : 'error-text'}>{msg}</p>}
+      </form>
+
+      <div className="admin-list">
+        {plans.length === 0 && <p className="empty-msg">No hay planes definidos.</p>}
+        {plans.map((p) => (
+          <div key={p._id} className={`admin-list-item ${!p.active ? 'inactive' : ''}`}>
+            <div>
+              <strong>{p.name}</strong>
+              <span className="tag-list">${p.price.toLocaleString('es-AR')}/mes</span>
+              <span className="tag-list">Hasta {p.maxBarbers} barbero{p.maxBarbers !== 1 ? 's' : ''}</span>
+              {p.includesReminders && <span className="tag-list plan-tag">Con recordatorios</span>}
+              {p.description && <span className="tag-list">{p.description}</span>}
+            </div>
+            <div className="item-actions">
+              <button type="button" className="btn-icon" onClick={() => editPlan(p)}>✏</button>
+              <button type="button" className="btn-icon btn-danger" onClick={() => deletePlan(p._id)}>🗑</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ======= SUSCRIPCIONES (superadmin) ======= */
+function TabSuscripciones() {
+  const [subs, setSubs] = useState([]);
+  const [shops, setShops] = useState([]);
+  const [plans, setPlans] = useState([]);
+  const [form, setForm] = useState({ shop: '', plan: '', status: 'active' });
+  const [msg, setMsg] = useState('');
+  const [msgType, setMsgType] = useState('');
+
+  const load = () => {
+    api.get('/subscriptions').then((r) => setSubs(r.data.subscriptions)).catch(() => {});
+    api.get('/shops').then((r) => setShops(r.data.shops)).catch(() => {});
+    api.get('/plans').then((r) => setPlans(r.data.plans)).catch(() => {});
+  };
+  useEffect(() => { load(); }, []);
+
+  const handleChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMsg('');
+    try {
+      await api.post('/subscriptions', form);
+      setForm({ shop: '', plan: '', status: 'active' });
+      setMsg('Suscripcion asignada correctamente');
+      setMsgType('success');
+      load();
+    } catch (err) {
+      setMsg(err.response?.data?.msg || 'Error');
+      setMsgType('error');
+    }
+  };
+
+  const shopsWithSub = new Set(subs.map((s) => s.shop?._id));
+
+  return (
+    <div>
+      <form className="admin-form" onSubmit={handleSubmit}>
+        <h3>Asignar Plan a Barberia</h3>
+        <select name="shop" value={form.shop} onChange={handleChange} required>
+          <option value="">Seleccionar barberia *</option>
+          {shops.map((s) => (
+            <option key={s._id} value={s._id}>{s.name}{shopsWithSub.has(s._id) ? ' (tiene plan)' : ''}</option>
+          ))}
+        </select>
+        <select name="plan" value={form.plan} onChange={handleChange} required>
+          <option value="">Seleccionar plan *</option>
+          {plans.map((p) => (
+            <option key={p._id} value={p._id}>{p.name} — ${p.price.toLocaleString('es-AR')}/mes — {p.maxBarbers} barbero{p.maxBarbers !== 1 ? 's' : ''}</option>
+          ))}
+        </select>
+        <select name="status" value={form.status} onChange={handleChange}>
+          <option value="active">Activa</option>
+          <option value="cancelled">Cancelada</option>
+          <option value="expired">Vencida</option>
+        </select>
+        <div className="form-actions">
+          <button type="submit" className="btn-confirm">Asignar / Actualizar Plan</button>
+        </div>
+        {msg && <p className={msgType === 'success' ? 'success-text' : 'error-text'}>{msg}</p>}
+      </form>
+
+      <div className="admin-list">
+        <h4 style={{ margin: '12px 0 8px' }}>Suscripciones activas</h4>
+        {subs.length === 0 && <p className="empty-msg">No hay suscripciones asignadas.</p>}
+        {subs.map((s) => (
+          <div key={s._id} className={`admin-list-item ${s.status !== 'active' ? 'inactive' : ''}`}>
+            <div>
+              <strong>{s.shop?.name || 'Barberia eliminada'}</strong>
+              <span className="tag-list">{s.plan?.name}</span>
+              <span className="tag-list">${s.plan?.price?.toLocaleString('es-AR')}/mes</span>
+              <span className="tag-list">Hasta {s.plan?.maxBarbers} barbero{s.plan?.maxBarbers !== 1 ? 's' : ''}</span>
+              {s.plan?.includesReminders && <span className="tag-list plan-tag">Con recordatorios</span>}
+              <span className={`tag-list ${s.status === 'active' ? '' : 'tag-inactive'}`}>{s.status === 'active' ? 'Activa' : s.status === 'cancelled' ? 'Cancelada' : 'Vencida'}</span>
+            </div>
+            <div className="item-actions">
+              <button
+                type="button"
+                className="btn-icon"
+                title="Editar"
+                onClick={() => setForm({ shop: s.shop?._id || '', plan: s.plan?._id || '', status: s.status })}
+              >✏</button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
