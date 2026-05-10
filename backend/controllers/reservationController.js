@@ -117,7 +117,7 @@ function minutesToTime(minutes) {
 export const updateReservationStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, reason } = req.body;
 
     const allowed = ['pending', 'confirmed', 'cancelled'];
     if (!allowed.includes(status)) {
@@ -135,6 +135,7 @@ export const updateReservationStatus = async (req, res) => {
     }
 
     reservation.status = status;
+    if (status === 'cancelled' && reason) reservation.cancellationReason = reason;
     await reservation.save();
 
     if (status === 'cancelled' && req.userType === 'admin') {
@@ -153,8 +154,9 @@ export const updateReservationStatus = async (req, res) => {
           `Servicio: ${activity.title}\n` +
           `Barbero: ${barber.name}\n` +
           `Fecha: ${reservation.date}\n` +
-          `Hora: ${reservation.time}\n\n` +
-          `Podes reservar un nuevo turno cuando quieras.`;
+          `Hora: ${reservation.time}\n` +
+          (reservation.cancellationReason ? `Motivo: ${reservation.cancellationReason}\n` : '') +
+          `\nPodes reservar un nuevo turno cuando quieras.`;
         waSend(shopId, client.phone, msg).catch((e) => console.warn('[WA] Error enviando cancelacion:', e.message));
       } catch (e) {
         console.warn('[WA] Error preparando mensaje de cancelacion:', e.message);

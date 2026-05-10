@@ -114,6 +114,31 @@ export const deleteAdmin = async (req, res) => {
   }
 };
 
+export const changeOwnPassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ ok: false, msg: 'Faltan datos' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ ok: false, msg: 'La nueva clave debe tener al menos 6 caracteres' });
+    }
+
+    const admin = await Admin.findById(req.uid);
+    if (!admin) return res.status(404).json({ ok: false, msg: 'Usuario no encontrado' });
+
+    const valid = bcrypt.compareSync(currentPassword, admin.password);
+    if (!valid) return res.status(401).json({ ok: false, msg: 'La clave actual es incorrecta' });
+
+    admin.password = bcrypt.hashSync(newPassword, 10);
+    await admin.save();
+
+    return res.json({ ok: true, msg: 'Clave actualizada correctamente' });
+  } catch (error) {
+    return res.status(500).json({ ok: false, msg: 'Error actualizando la clave' });
+  }
+};
+
 export const updateAdmin = async (req, res) => {
   try {
     if (req.role !== 'superadmin') {

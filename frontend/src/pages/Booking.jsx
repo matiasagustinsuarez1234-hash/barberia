@@ -71,6 +71,7 @@ export default function Booking() {
 
   const [dates] = useState(() => generateDates());
   const [date, setDate] = useState('');
+  const [closedDates, setClosedDates] = useState(new Set());
   const [slots, setSlots] = useState([]);
   const [slotMinutes, setSlotMinutes] = useState(45);
   const [selectedTime, setSelectedTime] = useState('');
@@ -114,9 +115,11 @@ export default function Booking() {
     Promise.all([
       api.get(`/public/activities?shop=${shopId}`),
       api.get(`/public/barbers?shop=${shopId}`),
-    ]).then(([actResp, barResp]) => {
+      api.get(`/public/closed-days?shop=${shopId}`),
+    ]).then(([actResp, barResp, closedResp]) => {
       setActivities(actResp.data.activities);
       setBarbers(barResp.data.barbers);
+      setClosedDates(new Set(closedResp.data.closedDates || []));
       if (actResp.data.activities.length > 0) setSelectedActivity(actResp.data.activities[0]);
       if (barResp.data.barbers.length > 0) setSelectedBarber(barResp.data.barbers[0]);
     }).catch(() => setMsg('Error cargando datos'));
@@ -151,8 +154,9 @@ export default function Booking() {
   }, [date]);
 
   const handleDateSelect = (d) => {
-    if (d.getDay() === 0) return; // Domingos cerrado
-    setDate(toDateKey(d));
+    const key = toDateKey(d);
+    if (d.getDay() === 0 || closedDates.has(key)) return;
+    setDate(key);
     setSelectedTime('');
     setSlots([]);
   };
@@ -405,12 +409,13 @@ export default function Booking() {
             const isSunday = d.getDay() === 0;
             const key = toDateKey(d);
             const isSelected = key === date;
+            const isClosed = closedDates.has(key);
             return (
               <div
                 key={i}
-                className={`date-item${isSelected ? ' selected' : ''}${isSunday ? ' disabled' : ''}`}
+                className={`date-item${isSelected ? ' selected' : ''}${isSunday || isClosed ? ' disabled' : ''}`}
                 onClick={() => handleDateSelect(d)}
-                title={isSunday ? 'Cerrado' : undefined}
+                title={isClosed ? 'Cerrado' : isSunday ? 'Cerrado' : undefined}
               >
                 <span className="date-dow">{DAYS_ES[d.getDay()]}</span>
                 <span className="date-num">{d.getDate()}</span>

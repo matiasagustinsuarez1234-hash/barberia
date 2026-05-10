@@ -3,6 +3,7 @@ import Activity from '../models/Activity.js';
 import Reservation from '../models/Reservation.js';
 import Schedule from '../models/Schedule.js';
 import Barbershop from '../models/Barbershop.js';
+import ClosedDay from '../models/ClosedDay.js';
 
 export const getPublicShops = async (req, res) => {
   try {
@@ -48,6 +49,17 @@ export const getPublicActivities = async (req, res) => {
   }
 };
 
+export const getPublicClosedDays = async (req, res) => {
+  try {
+    const { shop } = req.query;
+    if (!shop) return res.status(400).json({ ok: false, msg: 'Falta shop' });
+    const days = await ClosedDay.find({ shop }).select('date');
+    res.json({ ok: true, closedDates: days.map((d) => d.date) });
+  } catch (error) {
+    res.status(500).json({ ok: false, msg: 'Error obteniendo dias cerrados' });
+  }
+};
+
 export const getAvailableSlots = async (req, res) => {
   try {
     const { barber, date, activity: activityId } = req.query;
@@ -64,6 +76,12 @@ export const getAvailableSlots = async (req, res) => {
     const schedule = await Schedule.findOne({ barber, weekday, active: true });
     if (!schedule) {
       return res.json({ ok: true, slots: [] });
+    }
+
+    const barberDoc = await Barber.findById(barber).select('shop');
+    if (barberDoc) {
+      const closed = await ClosedDay.findOne({ shop: barberDoc.shop, date });
+      if (closed) return res.json({ ok: true, slots: [], closed: true });
     }
 
     const slots = generateSlots(schedule.startTime, schedule.endTime, schedule.slotMinutes);

@@ -9,7 +9,7 @@ const STATUS_CLASS = { pending: 'badge-pending', confirmed: 'badge-confirmed', c
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace('/api', '');
 
 const SUPER_TABS = ['Barberias', 'Admins', 'Planes', 'Suscripciones'];
-const SHOP_TABS = ['Turnos', 'Barberos', 'Actividades', 'Horarios', 'Clientes', 'Configuracion', 'WhatsApp', 'QR'];
+const SHOP_TABS = ['Turnos', 'Barberos', 'Actividades', 'Horarios', 'Dias Cerrados', 'Clientes', 'Configuracion', 'WhatsApp', 'QR'];
 
 export default function AdminPanel() {
   const { role } = useAuth();
@@ -61,6 +61,7 @@ export default function AdminPanel() {
             {tab === 'Barberos' && <TabBarberos />}
             {tab === 'Actividades' && <TabActividades />}
             {tab === 'Horarios' && <TabHorarios />}
+            {tab === 'Dias Cerrados' && <TabDiasCerrados />}
             {tab === 'Clientes' && <TabClientes />}
             {tab === 'Configuracion' && <TabConfig />}
             {tab === 'WhatsApp' && <TabWhatsApp />}
@@ -217,6 +218,8 @@ function TabAdmins() {
   const [editing, setEditing] = useState(null);
   const [msg, setMsg] = useState('');
   const [msgType, setMsgType] = useState('');
+  const [resetingId, setResetingId] = useState(null);
+  const [resetPassword, setResetPassword] = useState('');
 
   const load = () => {
     api.get('/auth/admins').then((r) => setAdmins(r.data.admins.filter((a) => a.role !== 'superadmin'))).catch(() => {});
@@ -257,6 +260,22 @@ function TabAdmins() {
 
   const cancelEdit = () => { setEditing(null); setForm(emptyForm); setMsg(''); };
 
+  const handleResetPassword = async (id) => {
+    if (!resetPassword || resetPassword.length < 6) {
+      return setMsg('La clave debe tener al menos 6 caracteres');
+    }
+    try {
+      await api.put(`/auth/admins/${id}`, { password: resetPassword });
+      setMsg('Clave blanqueada correctamente');
+      setMsgType('success');
+      setResetingId(null);
+      setResetPassword('');
+    } catch (err) {
+      setMsg(err.response?.data?.msg || 'Error');
+      setMsgType('error');
+    }
+  };
+
   const deleteAdmin = async (id) => {
     if (!confirm('Eliminar administrador?')) return;
     await api.delete(`/auth/admins/${id}`);
@@ -294,15 +313,31 @@ function TabAdmins() {
       <div className="admin-list">
         {admins.length === 0 && <p className="empty-msg">No hay administradores de barberias.</p>}
         {admins.map((a) => (
-          <div key={a._id} className="admin-list-item">
-            <div>
-              <strong>@{a.username}</strong>
-              <span className="tag-list">{a.shop ? a.shop.name : <em>Sin barberia asignada</em>}</span>
+          <div key={a._id} className="admin-list-item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <strong>@{a.username}</strong>
+                <span className="tag-list">{a.shop ? a.shop.name : <em>Sin barberia asignada</em>}</span>
+              </div>
+              <div className="item-actions">
+                <button type="button" className="btn-icon" title="Blanquear clave" onClick={() => { setResetingId(resetingId === a._id ? null : a._id); setResetPassword(''); setMsg(''); }}>🔑</button>
+                <button type="button" className="btn-icon" onClick={() => editAdmin(a)}>✏</button>
+                <button type="button" className="btn-icon btn-danger" onClick={() => deleteAdmin(a._id)}>🗑</button>
+              </div>
             </div>
-            <div className="item-actions">
-              <button type="button" className="btn-icon" onClick={() => editAdmin(a)}>✏</button>
-              <button type="button" className="btn-icon btn-danger" onClick={() => deleteAdmin(a._id)}>🗑</button>
-            </div>
+            {resetingId === a._id && (
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                <input
+                  type="password"
+                  placeholder="Nueva clave (min. 6 caracteres)"
+                  value={resetPassword}
+                  onChange={(e) => setResetPassword(e.target.value)}
+                  style={{ flex: 1 }}
+                />
+                <button type="button" className="btn-confirm" onClick={() => handleResetPassword(a._id)}>Guardar</button>
+                <button type="button" className="btn-secondary" onClick={() => { setResetingId(null); setResetPassword(''); }}>Cancelar</button>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -315,14 +350,22 @@ function TabTurnos() {
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [cancelingId, setCancelingId] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
 
   useEffect(() => {
     api.get('/reservations').then((r) => setReservations(r.data.reservations)).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  const changeStatus = async (id, status) => {
-    await api.patch(`/reservations/${id}/status`, { status });
+  const changeStatus = async (id, status, reason) => {
+    await api.patch(`/reservations/${id}/status`, { status, reason });
     setReservations((prev) => prev.map((r) => r._id === id ? { ...r, status } : r));
+  };
+
+  const handleCancel = async (id) => {
+    await changeStatus(id, 'cancelled', cancelReason);
+    setCancelingId(null);
+    setCancelReason('');
   };
 
   const visible = filter === 'all' ? reservations : reservations.filter((r) => r.status === filter);
@@ -349,12 +392,29 @@ function TabTurnos() {
               <div className="reservation-body">
                 <strong>{r.client?.name}</strong> &mdash; {r.activity?.title} con {r.barber?.name}
               </div>
+              {r.cancellationReason && (
+                <div className="cancellation-reason">Motivo: {r.cancellationReason}</div>
+              )}
               {r.status !== 'cancelled' && (
                 <div className="reservation-actions">
                   {r.status === 'pending' && (
                     <button type="button" className="btn-small btn-confirm-sm" onClick={() => changeStatus(r._id, 'confirmed')}>Confirmar</button>
                   )}
-                  <button type="button" className="btn-small btn-cancel-sm" onClick={() => changeStatus(r._id, 'cancelled')}>Cancelar</button>
+                  {cancelingId === r._id ? (
+                    <div className="cancel-reason-form">
+                      <input
+                        type="text"
+                        placeholder="Motivo (opcional)"
+                        value={cancelReason}
+                        onChange={(e) => setCancelReason(e.target.value)}
+                        autoFocus
+                      />
+                      <button type="button" className="btn-small btn-cancel-sm" onClick={() => handleCancel(r._id)}>Confirmar cancelacion</button>
+                      <button type="button" className="btn-small" onClick={() => { setCancelingId(null); setCancelReason(''); }}>Volver</button>
+                    </div>
+                  ) : (
+                    <button type="button" className="btn-small btn-cancel-sm" onClick={() => setCancelingId(r._id)}>Cancelar</button>
+                  )}
                 </div>
               )}
             </div>
@@ -628,6 +688,139 @@ function TabHorarios() {
   );
 }
 
+/* ======= DIAS CERRADOS (shopadmin) ======= */
+function TabDiasCerrados() {
+  const [closedDays, setClosedDays] = useState([]);
+  const [date, setDate] = useState('');
+  const [reason, setReason] = useState('');
+  const [msg, setMsg] = useState('');
+  const [msgType, setMsgType] = useState('error');
+  const [loading, setLoading] = useState(false);
+  const [confirm, setConfirm] = useState(null); // { date, reason, count, reservations }
+
+  const load = () => api.get('/closed-days').then((r) => setClosedDays(r.data.closedDays)).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  const handleCheck = async (e) => {
+    e.preventDefault();
+    setMsg('');
+    if (!date) return setMsg('Selecciona una fecha');
+    setLoading(true);
+    try {
+      const resp = await api.get(`/closed-days/check?date=${date}`);
+      setConfirm({ date, reason, count: resp.data.count, reservations: resp.data.reservations });
+    } catch (err) {
+      setMsg(err.response?.data?.msg || 'Error verificando turnos');
+      setMsgType('error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    try {
+      const resp = await api.post('/closed-days', { date: confirm.date, reason: confirm.reason });
+      setMsgType('success');
+      setMsg(
+        resp.data.cancelledCount > 0
+          ? `Dia cerrado. Se cancelaron ${resp.data.cancelledCount} turno${resp.data.cancelledCount !== 1 ? 's' : ''} y los clientes fueron notificados.`
+          : 'Dia marcado como cerrado. No habia turnos pendientes.'
+      );
+      setDate('');
+      setReason('');
+      setConfirm(null);
+      load();
+    } catch (err) {
+      setMsg(err.response?.data?.msg || 'Error cerrando el dia');
+      setMsgType('error');
+      setConfirm(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    await api.delete(`/closed-days/${id}`);
+    load();
+  };
+
+  return (
+    <div>
+      {!confirm ? (
+        <form className="admin-form" onSubmit={handleCheck}>
+          <h3>Marcar dia no laborable</h3>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            min={new Date().toISOString().split('T')[0]}
+            required
+          />
+          <input
+            type="text"
+            placeholder="Motivo (opcional, se envia a los clientes)"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+          {msg && <p className={msgType === 'success' ? 'success-text' : 'error-text'}>{msg}</p>}
+          <button type="submit" className="btn-confirm" disabled={loading}>
+            {loading ? 'Verificando...' : 'Continuar'}
+          </button>
+        </form>
+      ) : (
+        <div className="admin-form">
+          <h3>Confirmar cierre del dia</h3>
+          <p><strong>Fecha:</strong> {confirm.date}</p>
+          {confirm.reason && <p><strong>Motivo:</strong> {confirm.reason}</p>}
+          {confirm.count > 0 ? (
+            <>
+              <p className="error-text">
+                Hay <strong>{confirm.count} turno{confirm.count !== 1 ? 's' : ''} pactado{confirm.count !== 1 ? 's' : ''}</strong> para este dia.
+                Al confirmar, se cancelaran automaticamente y los clientes seran notificados por WhatsApp.
+              </p>
+              <div className="admin-list" style={{ marginBottom: '12px' }}>
+                {confirm.reservations.map((r) => (
+                  <div key={r._id} className="admin-list-item">
+                    <div>
+                      <strong>{r.client?.name}</strong>
+                      <span className="tag-list">{r.time} — {r.activity?.title} con {r.barber?.name}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="success-text">No hay turnos pactados para este dia.</p>
+          )}
+          <div className="form-actions">
+            <button type="button" className="btn-confirm" onClick={handleConfirm} disabled={loading}>
+              {loading ? 'Procesando...' : 'Si, cerrar el dia'}
+            </button>
+            <button type="button" className="btn-secondary" onClick={() => setConfirm(null)}>Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      <h3 style={{ marginTop: '24px' }}>Dias cerrados programados</h3>
+      <div className="admin-list">
+        {closedDays.length === 0 && <p className="empty-msg">No hay dias cerrados programados.</p>}
+        {closedDays.map((d) => (
+          <div key={d._id} className="admin-list-item">
+            <div>
+              <strong>{d.date}</strong>
+              {d.reason && <span className="tag-list">{d.reason}</span>}
+            </div>
+            <div className="item-actions">
+              <button type="button" className="btn-icon btn-danger" title="Reabrir dia" onClick={() => handleDelete(d._id)}>🗑</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ======= CLIENTES (shopadmin) ======= */
 function TabClientes() {
   const [clients, setClients] = useState([]);
@@ -704,6 +897,11 @@ function TabConfig() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('');
 
+  const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [pwMsg, setPwMsg] = useState('');
+  const [pwMsgType, setPwMsgType] = useState('error');
+  const [pwLoading, setPwLoading] = useState(false);
+
   useEffect(() => {
     api.get('/shops').then((r) => setShops(r.data.shops)).catch(() => {}).finally(() => setLoading(false));
   }, []);
@@ -714,6 +912,32 @@ function TabConfig() {
       setShops((prev) => prev.map((s) => s._id === id ? resp.data.shop : s));
       setMsg('Metodo de pago actualizado');
     } catch { setMsg('Error actualizando pago'); }
+  };
+
+  const handlePwChange = (e) => setPwForm((p) => ({ ...p, [e.target.name]: e.target.value }));
+
+  const handlePwSubmit = async (e) => {
+    e.preventDefault();
+    setPwMsg('');
+    if (pwForm.newPassword !== pwForm.confirmPassword) {
+      setPwMsgType('error');
+      return setPwMsg('Las claves nuevas no coinciden');
+    }
+    setPwLoading(true);
+    try {
+      const resp = await api.put('/auth/me/password', {
+        currentPassword: pwForm.currentPassword,
+        newPassword: pwForm.newPassword,
+      });
+      setPwMsgType('success');
+      setPwMsg(resp.data.msg);
+      setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err) {
+      setPwMsgType('error');
+      setPwMsg(err.response?.data?.msg || 'Error actualizando la clave');
+    } finally {
+      setPwLoading(false);
+    }
   };
 
   if (loading) return <p>Cargando...</p>;
@@ -741,6 +965,38 @@ function TabConfig() {
           </div>
         </div>
       ))}
+
+      <h3 style={{ marginTop: '24px' }}>Cambiar mi clave</h3>
+      <form className="admin-form" onSubmit={handlePwSubmit}>
+        <input
+          name="currentPassword"
+          type="password"
+          placeholder="Clave actual"
+          value={pwForm.currentPassword}
+          onChange={handlePwChange}
+          required
+        />
+        <input
+          name="newPassword"
+          type="password"
+          placeholder="Nueva clave (minimo 6 caracteres)"
+          value={pwForm.newPassword}
+          onChange={handlePwChange}
+          required
+        />
+        <input
+          name="confirmPassword"
+          type="password"
+          placeholder="Confirmar nueva clave"
+          value={pwForm.confirmPassword}
+          onChange={handlePwChange}
+          required
+        />
+        {pwMsg && <p className={pwMsgType === 'success' ? 'success-text' : 'error-text'}>{pwMsg}</p>}
+        <button type="submit" className="btn-confirm" disabled={pwLoading}>
+          {pwLoading ? 'Guardando...' : 'Cambiar clave'}
+        </button>
+      </form>
     </div>
   );
 }

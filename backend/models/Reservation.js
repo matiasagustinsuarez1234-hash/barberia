@@ -10,6 +10,7 @@ const ReservationSchema = new mongoose.Schema({
   endTime: { type: String },
   status: { type: String, default: 'pending', enum: ['pending', 'confirmed', 'cancelled'] },
   notes: { type: String },
+  cancellationReason: { type: String },
   createdAt: { type: Date, default: Date.now },
 });
 
