@@ -6,6 +6,7 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(localStorage.getItem('jwt_token') || '');
   const [userType, setUserType] = useState(localStorage.getItem('user_type') || '');
   const [role, setRole] = useState(localStorage.getItem('user_role') || '');
+  const [shopName, setShopName] = useState(localStorage.getItem('shop_name') || '');
 
   useEffect(() => {
     if (token) localStorage.setItem('jwt_token', token);
@@ -22,14 +23,20 @@ export function AuthProvider({ children }) {
     else localStorage.removeItem('user_role');
   }, [role]);
 
+  useEffect(() => {
+    if (shopName) localStorage.setItem('shop_name', shopName);
+    else localStorage.removeItem('shop_name');
+  }, [shopName]);
+
   const logout = () => {
     setToken('');
     setUserType('');
     setRole('');
+    setShopName('');
   };
 
   return (
-    <AuthContext.Provider value={{ token, setToken, userType, setUserType, role, setRole, logout }}>
+    <AuthContext.Provider value={{ token, setToken, userType, setUserType, role, setRole, shopName, setShopName, logout }}>
       {children}
     </AuthContext.Provider>
   );

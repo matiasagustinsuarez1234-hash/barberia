@@ -2,7 +2,7 @@ import { Outlet, Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthProvider';
 
 export default function Layout() {
-  const { logout, userType } = useAuth();
+  const { logout, userType, shopName } = useAuth();
   const { shopSlug } = useParams();
   const navigate = useNavigate();
 
@@ -14,7 +14,9 @@ export default function Layout() {
   return (
     <div className="app-shell">
       <nav className="topbar">
-        <Link to={userType === 'admin' ? '/admin' : `/${shopSlug}/turnos`} className="logo">SAAS Solutions</Link>
+        <Link to={userType === 'admin' ? '/admin' : `/${shopSlug}/turnos`} className="logo">
+          {userType === 'admin' && shopName ? shopName : 'SAAS Solutions'}
+        </Link>
         <div className="nav-links">
           {userType === 'admin' ? (
             <Link to="/admin">Panel Admin</Link>

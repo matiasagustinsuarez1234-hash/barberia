@@ -16,7 +16,7 @@ export default function Login() {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { setToken, setUserType, setRole } = useAuth();
+  const { setToken, setUserType, setRole, setShopName } = useAuth();
 
   const successMsg = location.state?.msg || '';
   const next = location.state?.next || (shopSlug ? `/${shopSlug}/mis-turnos` : '/admin');
@@ -30,6 +30,7 @@ export default function Login() {
       setToken(resp.data.token);
       setUserType(resp.data.userType);
       setRole(resp.data.role || '');
+      setShopName(resp.data.shopName || '');
       navigate('/admin', { replace: true });
     } catch {
       setError('Credenciales invalidas');

@@ -18,7 +18,7 @@ const createToken = (user) => {
 export const login = async (req, res) => {
   try {
     const { username, password } = req.body;
-    const user = await Admin.findOne({ username });
+    const user = await Admin.findOne({ username }).populate('shop', 'name');
 
     if (!user) {
       return res.status(401).json({ ok: false, msg: 'Credenciales invalidas' });
@@ -36,6 +36,7 @@ export const login = async (req, res) => {
       userType: 'admin',
       role: user.role,
       name: user.username,
+      shopName: user.shop?.name || null,
     });
   } catch (error) {
     return res.status(500).json({ ok: false, msg: 'Error en el login', error: error.message });
