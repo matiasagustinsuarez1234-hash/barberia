@@ -304,7 +304,7 @@ export default function Booking() {
             <div key={r._id || i} className="reservation-summary">
               {reservations.length > 1 && <p className="summary-label">Turno {i + 1}</p>}
               <p><strong>{r.activity?.title}</strong></p>
-              <p>Barbero: {r.barber?.name}</p>
+              <p>Profesional: {r.barber?.name}</p>
               <p>Fecha: {r.date} a las {r.time}</p>
               {r.notes && reservations.length > 1 && <p>Persona: {r.notes.split(' — ')[0]}</p>}
             </div>

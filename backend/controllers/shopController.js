@@ -1,4 +1,10 @@
 import Barbershop from '../models/Barbershop.js';
+import Barber from '../models/Barber.js';
+import Activity from '../models/Activity.js';
+import Reservation from '../models/Reservation.js';
+import Schedule from '../models/Schedule.js';
+import Subscription from '../models/Subscription.js';
+import ClosedDay from '../models/ClosedDay.js';
 
 export const getShops = async (req, res) => {
   try {
@@ -58,13 +64,23 @@ export const updateShop = async (req, res) => {
 export const deleteShop = async (req, res) => {
   try {
     if (req.role !== 'superadmin') {
-      return res.status(403).json({ ok: false, msg: 'Solo el superadmin puede eliminar barberias' });
+      return res.status(403).json({ ok: false, msg: 'Solo el superadmin puede eliminar empresas' });
     }
     const { id } = req.params;
+
+    await Promise.all([
+      Barber.deleteMany({ shop: id }),
+      Activity.deleteMany({ shop: id }),
+      Reservation.deleteMany({ shop: id }),
+      Schedule.deleteMany({ shop: id }),
+      Subscription.deleteMany({ shop: id }),
+      ClosedDay.deleteMany({ shop: id }),
+    ]);
+
     await Barbershop.findByIdAndDelete(id);
-    res.json({ ok: true, msg: 'Barberia eliminada' });
+    res.json({ ok: true, msg: 'Empresa eliminada' });
   } catch (error) {
-    res.status(500).json({ ok: false, msg: 'Error eliminando barberia' });
+    res.status(500).json({ ok: false, msg: 'Error eliminando empresa' });
   }
 };
 

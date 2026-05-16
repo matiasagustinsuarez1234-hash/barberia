@@ -41,6 +41,18 @@ export const upsertSubscription = async (req, res) => {
   }
 };
 
+export const deleteSubscription = async (req, res) => {
+  try {
+    if (req.role !== 'superadmin') {
+      return res.status(403).json({ ok: false, msg: 'Solo superadmin puede eliminar suscripciones' });
+    }
+    await Subscription.findByIdAndDelete(req.params.id);
+    res.json({ ok: true, msg: 'Suscripcion eliminada' });
+  } catch {
+    res.status(500).json({ ok: false, msg: 'Error eliminando suscripcion' });
+  }
+};
+
 export const checkBarberLimit = async (shopId) => {
   const sub = await Subscription.findOne({ shop: shopId, status: 'active' }).populate('plan');
   if (!sub) return { allowed: true };

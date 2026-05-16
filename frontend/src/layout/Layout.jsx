@@ -14,7 +14,7 @@ export default function Layout() {
   return (
     <div className="app-shell">
       <nav className="topbar">
-        <Link to={userType === 'admin' ? '/admin' : `/${shopSlug}/turnos`} className="logo">KND BARBER</Link>
+        <Link to={userType === 'admin' ? '/admin' : `/${shopSlug}/turnos`} className="logo">SAAS Solutions</Link>
         <div className="nav-links">
           {userType === 'admin' ? (
             <Link to="/admin">Panel Admin</Link>
