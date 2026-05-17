@@ -1,5 +1,75 @@
 ﻿/* Admin panel styles */
 
+.wa-subtitle {
+  color: #666;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+}
+
+.wa-session-box {
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.wa-shops-title {
+  margin: 8px 0 12px;
+}
+
+.wa-shops-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wa-shop-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+}
+
+.wa-shop-name {
+  font-weight: 600;
+}
+
+.wa-toggle {
+  padding: 6px 16px;
+  border-radius: 20px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: background 0.2s;
+
+  &.enabled {
+    background: #22c55e;
+    color: #fff;
+  }
+
+  &.disabled {
+    background: #e5e7eb;
+    color: #666;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.admin-shop-name {
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #555;
+  margin: -12px 0 16px;
+  letter-spacing: 0.03em;
+}
+
 .tabs {
   display: flex;
   gap: 4px;

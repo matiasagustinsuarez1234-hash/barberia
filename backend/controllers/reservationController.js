@@ -83,7 +83,7 @@ export const createReservation = async (req, res) => {
     // Notificar al admin de la barbería
     try {
       const { shop: s, barber: b, activity: a, client: c } = populated;
-      if (s?.whatsappNumber) {
+      if (s?.whatsappEnabled && s?.whatsappNumber) {
         const msg =
           `*Nuevo turno reservado*\n\n` +
           `Cliente: ${c.name} (${c.phone})\n` +
@@ -145,9 +145,10 @@ export const updateReservationStatus = async (req, res) => {
           { path: 'client', select: 'name phone' },
           { path: 'barber', select: 'name' },
           { path: 'activity', select: 'title' },
-          { path: 'shop', select: 'name' },
+          { path: 'shop', select: 'name whatsappEnabled' },
         ]);
         const { client, barber, activity, shop } = reservation;
+        if (!shop?.whatsappEnabled) return;
         const msg =
           `*TURNO CANCELADO*\n\n` +
           `Hola ${client.name}, tu turno en *${shop.name}* fue cancelado.\n\n` +

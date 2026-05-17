@@ -30,7 +30,7 @@ export const sendRegisterOtp = async (req, res) => {
 
     try {
       const regShop = shopSlug ? await (await import('../models/Barbershop.js')).default.findOne({ slug: shopSlug.toLowerCase() }) : null;
-      if (regShop) {
+      if (regShop?.whatsappEnabled) {
         await waSend(regShop._id.toString(), phone, `*Codigo de verificacion*\n\nHola ${name}! Tu codigo es: *${code}*\n\nValido por 10 minutos.`);
       }
     } catch (waError) {
@@ -102,7 +102,7 @@ export const sendOtp = async (req, res) => {
 
     try {
       const otpShop = shopSlug ? await (await import('../models/Barbershop.js')).default.findOne({ slug: shopSlug.toLowerCase() }) : null;
-      if (otpShop) {
+      if (otpShop?.whatsappEnabled) {
         await waSend(otpShop._id.toString(), phone, `*Codigo de verificacion*\n\nHola ${name}! Tu codigo es: *${code}*\n\nValido por 10 minutos.`);
       }
     } catch (waError) {
@@ -298,7 +298,20 @@ async function _createReservation({ client, shopSlug, barberId, activityId, date
       `Te esperamos!`;
   }
 
-  waSend(shop._id.toString(), client.phone, confirmMsg).catch((e) => console.warn('WA confirmacion error:', e));
+  if (shop.whatsappEnabled) {
+    waSend(shop._id.toString(), client.phone, confirmMsg).catch((e) => console.warn('WA confirmacion cliente error:', e));
+  }
+
+  if (shop.whatsappEnabled && shop.whatsappNumber) {
+    const adminMsg =
+      `*Nuevo turno reservado*\n\n` +
+      `Cliente: ${client.name} (${client.phone})\n` +
+      `Servicio: ${activity.title}\n` +
+      `Barbero: ${barber.name}\n` +
+      `Fecha: ${date}\n` +
+      `Hora: ${time}`;
+    waSend(shop._id.toString(), shop.whatsappNumber, adminMsg).catch((e) => console.warn('WA notificacion admin error:', e));
+  }
 
   return res.status(201).json({ ok: true, reservation: populated[0], reservations: populated });
 }

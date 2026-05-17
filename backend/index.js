@@ -4,8 +4,7 @@ import 'dotenv/config';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
-import Barbershop from './models/Barbershop.js';
-import { initClient } from './utils/whatsappManager.js';
+import { initCentral } from './utils/whatsappManager.js';
 import { startReminderJob } from './utils/reminderJob.js';
 
 import { dbMongo } from './database/dbConnection.js';
@@ -45,17 +44,14 @@ const api = async () => {
   console.log("URI:", process.env.MONGO_URI);
   await dbMongo();
 
-  // Auto-restore WhatsApp sessions for shops that already have a saved session
+  // Auto-restore sesión central de WhatsApp si ya existe
   try {
-    const allShops = await Barbershop.find({}, '_id');
-    for (const shop of allShops) {
-      const sessionDir = path.join(__dirname, '.wwebjs_auth', 'session-shop_' + shop._id);
-      if (existsSync(sessionDir)) {
-        initClient(shop._id.toString());
-      }
+    const centralDir = path.join(__dirname, '.wwebjs_auth', 'session-central');
+    if (existsSync(centralDir)) {
+      initCentral();
     }
   } catch (e) {
-    console.warn('[WA] Error restaurando sesiones:', e.message);
+    console.warn('[WA] Error restaurando sesión central:', e.message);
   }
 
   server.use('/api/public', publicRoutes);

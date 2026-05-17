@@ -12,6 +12,7 @@ const BarbershopSchema = new mongoose.Schema({
   areaCode: { type: String, default: '11' },
   active: { type: Boolean, default: true },
   mercadopagoEnabled: { type: Boolean, default: false },
+  whatsappEnabled: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },
 });
 

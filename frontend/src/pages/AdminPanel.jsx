@@ -12,14 +12,14 @@ import TabHorarios from './admin/TabHorarios';
 import TabDiasCerrados from './admin/TabDiasCerrados';
 import TabClientes from './admin/TabClientes';
 import TabConfig from './admin/TabConfig';
-import TabWhatsApp from './admin/TabWhatsApp';
 import TabQR from './admin/TabQR';
+import TabWhatsAppCentral from './admin/TabWhatsAppCentral';
 
-const SUPER_TABS = ['Empresas', 'Admins', 'Planes', 'Suscripciones'];
-const SHOP_TABS = ['Turnos', 'Barberos', 'Actividades', 'Horarios', 'Dias Cerrados', 'Clientes', 'Configuracion', 'WhatsApp', 'QR'];
+const SUPER_TABS = ['Empresas', 'Admins', 'Planes', 'Suscripciones', 'WhatsApp'];
+const SHOP_TABS = ['Turnos', 'Barberos', 'Actividades', 'Horarios', 'Dias Cerrados', 'Clientes', 'Configuracion', 'QR'];
 
 export default function AdminPanel() {
-  const { role } = useAuth();
+  const { role, shopName } = useAuth();
   const isSuperAdmin = role === 'superadmin';
   const tabs = isSuperAdmin ? SUPER_TABS : SHOP_TABS;
   const [tab, setTab] = useState(tabs[0]);
@@ -47,6 +47,7 @@ export default function AdminPanel() {
   return (
     <div className="admin-card">
       <h1>Panel {isSuperAdmin ? 'Super Admin' : 'Admin'}</h1>
+      {!isSuperAdmin && shopName && <p className="admin-shop-name">{shopName}</p>}
       <div className="tabs">
         {tabs.map((t) => (
           <button key={t} type="button" className={`tab-btn ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>
@@ -61,6 +62,7 @@ export default function AdminPanel() {
             {tab === 'Admins' && <TabAdmins />}
             {tab === 'Planes' && <TabPlanes />}
             {tab === 'Suscripciones' && <TabSuscripciones />}
+            {tab === 'WhatsApp' && <TabWhatsAppCentral />}
           </>
         ) : (
           <>
@@ -71,7 +73,6 @@ export default function AdminPanel() {
             {tab === 'Dias Cerrados' && <TabDiasCerrados />}
             {tab === 'Clientes' && <TabClientes />}
             {tab === 'Configuracion' && <TabConfig />}
-            {tab === 'WhatsApp' && <TabWhatsApp />}
             {tab === 'QR' && <TabQR shop={shop} shopLoading={shopLoading} shopUrl={shopUrl} copyMsg={copyMsg} handleCopyUrl={handleCopyUrl} handlePrintQr={handlePrintQr} />}
           </>
         )}

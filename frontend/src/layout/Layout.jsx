@@ -2,7 +2,7 @@ import { Outlet, Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthProvider';
 
 export default function Layout() {
-  const { logout, userType, shopName } = useAuth();
+  const { logout, userType, shopName, username } = useAuth();
   const { shopSlug } = useParams();
   const navigate = useNavigate();
 
@@ -19,7 +19,7 @@ export default function Layout() {
         </Link>
         <div className="nav-links">
           {userType === 'admin' ? (
-            <Link to="/admin">Panel Admin</Link>
+            <Link to="/admin">user: {username}</Link>
           ) : (
             <>
               <Link to={`/${shopSlug}/turnos`}>Reservar Turno</Link>
