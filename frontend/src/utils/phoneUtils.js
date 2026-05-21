@@ -46,3 +46,29 @@ export function normalizeArgPhone(raw, areaCode = '11') {
 
   return { phone: digits, error: null };
 }
+
+/**
+ * Normaliza cualquier número de celular argentino al formato WhatsApp (549 + 10 dígitos),
+ * sin requerir una característica específica. Útil para validar el número del dueño del negocio.
+ */
+export function normalizeArgPhoneAny(raw) {
+  let digits = raw.replace(/\D/g, '');
+
+  if (digits.startsWith('0')) digits = digits.slice(1);
+
+  if (digits.startsWith('549')) {
+    // ya completo
+  } else if (digits.startsWith('54')) {
+    digits = '549' + digits.slice(2);
+  } else if (digits.startsWith('9')) {
+    digits = '54' + digits;
+  } else {
+    digits = '549' + digits;
+  }
+
+  if (!/^549\d{10}$/.test(digits)) {
+    return { phone: null, error: 'El número debe ser un celular argentino válido. Ej: 5491123456789 (549 + 10 dígitos)' };
+  }
+
+  return { phone: digits, error: null };
+}

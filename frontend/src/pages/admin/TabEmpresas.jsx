@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../../utils/api';
+import { normalizeArgPhoneAny } from '../../utils/phoneUtils';
 
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace('/api', '');
 
@@ -21,6 +22,17 @@ export default function TabEmpresas() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMsg('');
+
+    if (form.whatsappNumber) {
+      const { phone: normalizedWa, error: waError } = normalizeArgPhoneAny(form.whatsappNumber);
+      if (waError) {
+        setMsg(waError);
+        setMsgType('error');
+        return;
+      }
+      form.whatsappNumber = normalizedWa;
+    }
+
     const fd = new FormData();
     Object.entries(form).forEach(([k, v]) => { if (v) fd.append(k, v); });
     if (imageFile) fd.append('image', imageFile);

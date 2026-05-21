@@ -89,13 +89,16 @@ export async function disconnect(shopId) {
   clients.delete(shopId);
 }
 
+const NO_REPLY_FOOTER = '\n\n_Este mensaje es automático, por favor no respondas a este número._';
+
 // Envío: usa sesión central si está lista, sino la del shop (legacy)
 export async function send(shopId, phone, message) {
   const chatId = `${phone.replace(/\D/g, '')}@c.us`;
+  const fullMessage = message + NO_REPLY_FOOTER;
 
   const central = clients.get(CENTRAL_ID);
   if (central?.status === 'ready') {
-    await central.client.sendMessage(chatId, message);
+    await central.client.sendMessage(chatId, fullMessage);
     return;
   }
 
@@ -103,5 +106,5 @@ export async function send(shopId, phone, message) {
   if (!state || state.status !== 'ready') {
     throw new Error(`WhatsApp no conectado (central ni shop ${shopId})`);
   }
-  await state.client.sendMessage(chatId, message);
+  await state.client.sendMessage(chatId, fullMessage);
 }
