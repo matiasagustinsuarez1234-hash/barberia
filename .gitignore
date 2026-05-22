@@ -21,6 +21,9 @@ frontend/dist/
 *.log
 npm-debug.log*
 
+arberiaServer.pem
+conectarUbuntu.bat
+
 # Sistema operativo
 .DS_Store
 Thumbs.db
