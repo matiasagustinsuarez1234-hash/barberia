@@ -26,7 +26,8 @@ function createClient(id, clientId) {
   client.on('ready', () => {
     state.status = 'ready';
     state.qr = null;
-    console.log(`[WA] ✅ Conectado: ${id}`);
+    state.phone = client.info?.wid?.user ?? null;
+    console.log(`[WA] ✅ Conectado: ${id} (${state.phone ?? 'número desconocido'})`);
   });
 
   client.on('auth_failure', () => {
@@ -53,7 +54,8 @@ export function initCentral() {
 }
 
 export function getCentralStatus() {
-  return clients.get(CENTRAL_ID)?.status ?? 'disconnected';
+  const state = clients.get(CENTRAL_ID);
+  return { status: state?.status ?? 'disconnected', phone: state?.phone ?? null };
 }
 
 export function getCentralQR() {

@@ -7,7 +7,8 @@ import Barbershop from '../models/Barbershop.js';
 // --- Sesión central (superadmin) ---
 
 export const centralStatus = (req, res) => {
-  res.json({ ok: true, status: getCentralStatus() });
+  const { status, phone } = getCentralStatus();
+  res.json({ ok: true, status, phone });
 };
 
 export const centralConnect = (req, res) => {

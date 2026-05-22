@@ -4,6 +4,7 @@ import api from '../../utils/api';
 
 export default function TabWhatsAppCentral() {
   const [status, setStatus] = useState('disconnected');
+  const [phone, setPhone] = useState(null);
   const [qrValue, setQrValue] = useState(null);
   const [shops, setShops] = useState([]);
   const [toggling, setToggling] = useState(null);
@@ -12,6 +13,7 @@ export default function TabWhatsAppCentral() {
     try {
       const res = await api.get('/whatsapp/central/status');
       setStatus(res.data.status);
+      setPhone(res.data.phone ?? null);
       if (res.data.status === 'qr') {
         const qrRes = await api.get('/whatsapp/central/qr');
         setQrValue(qrRes.data.qr);
@@ -75,6 +77,7 @@ export default function TabWhatsAppCentral() {
         {status === 'ready' && (
           <div className="wa-connected">
             <p className="success-text">✅ WhatsApp central conectado</p>
+            {phone && <p className="wa-phone">Línea: +{phone}</p>}
             <button type="button" className="btn-secondary" onClick={handleDisconnect}>Desconectar</button>
           </div>
         )}
