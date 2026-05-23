@@ -101,3 +101,22 @@ export const togglePayment = async (req, res) => {
     res.status(500).json({ ok: false, msg: 'Error cambiando el metodo de pago' });
   }
 };
+
+export const updateWhatsappNumber = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (req.role !== 'superadmin' && req.user.shop?.toString() !== id) {
+      return res.status(403).json({ ok: false, msg: 'Sin permisos para esta barberia' });
+    }
+    const { whatsappNumber } = req.body;
+    const shop = await Barbershop.findByIdAndUpdate(
+      id,
+      { whatsappNumber: whatsappNumber || null },
+      { returnDocument: 'after' },
+    );
+    if (!shop) return res.status(404).json({ ok: false, msg: 'Barberia no encontrada' });
+    res.json({ ok: true, shop });
+  } catch (error) {
+    res.status(500).json({ ok: false, msg: 'Error actualizando número de WhatsApp' });
+  }
+};

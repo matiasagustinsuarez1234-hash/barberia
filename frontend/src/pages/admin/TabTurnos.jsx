@@ -10,6 +10,7 @@ export default function TabTurnos() {
   const [filter, setFilter] = useState('all');
   const [cancelingId, setCancelingId] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
+  const [remindingId, setRemindingId] = useState(null);
 
   useEffect(() => {
     api.get('/reservations').then((r) => setReservations(r.data.reservations)).catch(() => {}).finally(() => setLoading(false));
@@ -18,6 +19,14 @@ export default function TabTurnos() {
   const changeStatus = async (id, status, reason) => {
     await api.patch(`/reservations/${id}/status`, { status, reason });
     setReservations((prev) => prev.map((r) => r._id === id ? { ...r, status } : r));
+  };
+
+  const handleRemind = async (id) => {
+    setRemindingId(id);
+    try {
+      await api.post(`/reservations/${id}/remind`);
+    } catch { /* ignore */ }
+    setRemindingId(null);
   };
 
   const handleCancel = async (id) => {
@@ -57,6 +66,11 @@ export default function TabTurnos() {
                 <div className="reservation-actions">
                   {r.status === 'pending' && (
                     <button type="button" className="btn-small btn-confirm-sm" onClick={() => changeStatus(r._id, 'confirmed')}>Confirmar</button>
+                  )}
+                  {r.status === 'pending' && (
+                    <button type="button" className="btn-small" onClick={() => handleRemind(r._id)} disabled={remindingId === r._id}>
+                      {remindingId === r._id ? 'Enviando...' : 'Recordar'}
+                    </button>
                   )}
                   {cancelingId === r._id ? (
                     <div className="cancel-reason-form">

@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'react';
 import api from '../../utils/api';
+import { normalizeArgPhoneAny } from '../../utils/phoneUtils';
 
 export default function TabConfig() {
-  const [shops, setShops] = useState([]);
+  const [shop, setShop] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [msg, setMsg] = useState('');
+
+  const [waNumber, setWaNumber] = useState('');
+  const [waMsg, setWaMsg] = useState('');
+  const [waMsgType, setWaMsgType] = useState('success');
+  const [waLoading, setWaLoading] = useState(false);
 
   const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [pwMsg, setPwMsg] = useState('');
@@ -12,15 +17,43 @@ export default function TabConfig() {
   const [pwLoading, setPwLoading] = useState(false);
 
   useEffect(() => {
-    api.get('/shops').then((r) => setShops(r.data.shops)).catch(() => {}).finally(() => setLoading(false));
+    api.get('/shops')
+      .then((r) => {
+        const s = r.data.shops?.[0] || null;
+        setShop(s);
+        setWaNumber(s?.whatsappNumber ?? '');
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
-  const togglePayment = async (id) => {
+  const handleWaSubmit = async (e) => {
+    e.preventDefault();
+    setWaMsg('');
+
+    let normalized = '';
+    if (waNumber.trim()) {
+      const { phone, error } = normalizeArgPhoneAny(waNumber);
+      if (error) {
+        setWaMsgType('error');
+        return setWaMsg(error);
+      }
+      normalized = phone;
+    }
+
+    setWaLoading(true);
     try {
-      const resp = await api.patch(`/shops/${id}/payment`);
-      setShops((prev) => prev.map((s) => s._id === id ? resp.data.shop : s));
-      setMsg('Metodo de pago actualizado');
-    } catch { setMsg('Error actualizando pago'); }
+      const res = await api.patch(`/shops/${shop._id}/whatsapp-number`, { whatsappNumber: normalized });
+      setShop(res.data.shop);
+      setWaNumber(res.data.shop.whatsappNumber ?? '');
+      setWaMsgType('success');
+      setWaMsg(normalized ? 'Número guardado. Te llegará copia de cada turno.' : 'Número eliminado. No recibirás notificaciones.');
+    } catch (err) {
+      setWaMsgType('error');
+      setWaMsg(err.response?.data?.msg || 'Error guardando número');
+    } finally {
+      setWaLoading(false);
+    }
   };
 
   const handlePwChange = (e) => setPwForm((p) => ({ ...p, [e.target.name]: e.target.value }));
@@ -53,27 +86,22 @@ export default function TabConfig() {
 
   return (
     <div>
-      <h3>Configuracion de Barberia</h3>
-      {msg && <p className="success-text">{msg}</p>}
-      {shops.map((s) => (
-        <div key={s._id} className="shop-config-card">
-          <div className="shop-info">
-            <strong>{s.name}</strong>
-            {s.address && <span>{s.address}</span>}
-            {s.phone && <span>{s.phone}</span>}
-          </div>
-          <div className="toggle-row">
-            <span>MercadoPago</span>
-            <label className="toggle-switch">
-              <input type="checkbox" checked={s.mercadopagoEnabled} onChange={() => togglePayment(s._id)} />
-              <span className="toggle-slider" />
-            </label>
-            <span className={s.mercadopagoEnabled ? 'text-active' : 'text-inactive'}>
-              {s.mercadopagoEnabled ? 'Activo' : 'Inactivo'}
-            </span>
-          </div>
-        </div>
-      ))}
+      <h3>Número de WhatsApp del negocio</h3>
+      <p className="wa-subtitle">
+        A este número te llega copia de cada turno nuevo. Si lo dejás vacío, no recibís notificaciones.
+      </p>
+      <form className="admin-form" onSubmit={handleWaSubmit}>
+        <input
+          type="text"
+          placeholder="Ej: 1161234567 (sin el 0 ni el 15)"
+          value={waNumber}
+          onChange={(e) => setWaNumber(e.target.value)}
+        />
+        {waMsg && <p className={waMsgType === 'success' ? 'success-text' : 'error-text'}>{waMsg}</p>}
+        <button type="submit" className="btn-confirm" disabled={waLoading}>
+          {waLoading ? 'Guardando...' : 'Guardar número'}
+        </button>
+      </form>
 
       <h3 style={{ marginTop: '24px' }}>Cambiar mi clave</h3>
       <form className="admin-form" onSubmit={handlePwSubmit}>
