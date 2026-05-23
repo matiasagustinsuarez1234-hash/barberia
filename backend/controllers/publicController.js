@@ -4,6 +4,8 @@ import Reservation from '../models/Reservation.js';
 import Schedule from '../models/Schedule.js';
 import Barbershop from '../models/Barbershop.js';
 import ClosedDay from '../models/ClosedDay.js';
+import Client from '../models/Client.js';
+import { send as waSend } from '../utils/whatsappManager.js';
 
 export const getPublicShops = async (req, res) => {
   try {
@@ -117,6 +119,61 @@ function timeToMinutes(time) {
   const [h, m] = time.split(':').map(Number);
   return h * 60 + m;
 }
+
+export const cancelOwnReservation = async (req, res) => {
+  try {
+    const { phone, reservationId } = req.body;
+    if (!phone || !reservationId) return res.status(400).json({ ok: false, msg: 'Faltan datos' });
+
+    const client = await Client.findOne({ phone });
+    if (!client) return res.status(404).json({ ok: false, msg: 'Cliente no encontrado' });
+
+    const reservation = await Reservation.findById(reservationId).populate([
+      { path: 'shop', select: 'name slug whatsappEnabled whatsappNumber' },
+      { path: 'barber', select: 'name' },
+      { path: 'activity', select: 'title' },
+    ]);
+    if (!reservation) return res.status(404).json({ ok: false, msg: 'Turno no encontrado' });
+    if (reservation.client.toString() !== client._id.toString()) {
+      return res.status(403).json({ ok: false, msg: 'No autorizado' });
+    }
+    if (reservation.status === 'cancelled') {
+      return res.status(400).json({ ok: false, msg: 'El turno ya está cancelado' });
+    }
+
+    reservation.status = 'cancelled';
+    await reservation.save();
+
+    const { shop, barber, activity } = reservation;
+    if (shop?.whatsappEnabled) {
+      const bookingLink = shop.slug ? `\n${process.env.PUBLIC_URL}/${shop.slug}/turnos` : '';
+      waSend(shop._id.toString(), client.phone,
+        `*Turno cancelado*\n\n` +
+        `Hola ${client.name}, tu turno en *${shop.name}* fue cancelado.\n\n` +
+        `Servicio: ${activity.title}\n` +
+        `Barbero: ${barber.name}\n` +
+        `Fecha: ${reservation.date}\n` +
+        `Hora: ${reservation.time}\n\n` +
+        `Podés reservar un nuevo turno cuando quieras:${bookingLink}`
+      ).catch(() => {});
+
+      if (shop.whatsappNumber) {
+        waSend(shop._id.toString(), shop.whatsappNumber,
+          `*Turno cancelado por el cliente*\n\n` +
+          `${client.name} (${client.phone}) canceló su turno.\n\n` +
+          `Servicio: ${activity.title}\n` +
+          `Barbero: ${barber.name}\n` +
+          `Fecha: ${reservation.date}\n` +
+          `Hora: ${reservation.time}`
+        ).catch(() => {});
+      }
+    }
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, msg: 'Error cancelando turno' });
+  }
+};
 
 function generateSlots(startTime, endTime, slotMinutes) {
   const slots = [];

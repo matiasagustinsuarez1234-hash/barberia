@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../utils/api';
-import { normalizeArgPhone } from '../utils/phoneUtils';
+import { normalizeArgPhone, normalizeArgPhoneAny } from '../utils/phoneUtils';
 
 const MONTHS_ES = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
 const DAYS_ES   = ['DOM','LUN','MAR','MIE','JUE','VIE','SAB'];
@@ -96,6 +96,14 @@ export default function Booking() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [reservations, setReservations] = useState([]);
+
+  // Flujo de cancelación
+  const [cancelView, setCancelView] = useState(null); // null | 'phone' | 'otp' | 'list'
+  const [cancelPhone, setCancelPhone] = useState('');
+  const [cancelOtpCode, setCancelOtpCode] = useState('');
+  const [cancelReservations, setCancelReservations] = useState([]);
+  const [cancelMsg, setCancelMsg] = useState('');
+  const [cancelLoading, setCancelLoading] = useState(false);
 
   // Resolver slug → shopId
   useEffect(() => {
@@ -214,7 +222,7 @@ export default function Booking() {
         shopSlug,
       });
       if (resp.data.clientExists) {
-        await _doBook({ isNew: false });
+        await _doBook({ isNew: false, phone: normalizedPhone });
       } else {
         setStep(3);
       }
@@ -240,10 +248,10 @@ export default function Booking() {
     }
   };
 
-  const _doBook = async ({ isNew, code }) => {
+  const _doBook = async ({ isNew, code, phone: explicitPhone }) => {
     const groupSlots = getGroupSlots(selectedTime);
     const payload = {
-      phone: clientPhone,
+      phone: explicitPhone ?? clientPhone,
       shopSlug,
       barberId: selectedBarber._id,
       activityId: selectedActivity._id,
@@ -264,6 +272,49 @@ export default function Booking() {
     const resp = await api.post(endpoint, payload);
     setReservations(resp.data.reservations || [resp.data.reservation]);
     setSuccess(true);
+  };
+
+  // --- Flujo cancelación ---
+  const handleCancelPhoneSubmit = async (e) => {
+    e.preventDefault();
+    setCancelMsg('');
+    const { phone, error } = normalizeArgPhoneAny(cancelPhone);
+    if (error) return setCancelMsg(error);
+    setCancelLoading(true);
+    try {
+      await api.post('/otp/send-cancel', { phone, shopSlug });
+      setCancelPhone(phone);
+      setCancelView('otp');
+    } catch (err) {
+      setCancelMsg(err.response?.data?.msg || 'Error enviando código');
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
+  const handleCancelOtpSubmit = async (e) => {
+    e.preventDefault();
+    setCancelMsg('');
+    setCancelLoading(true);
+    try {
+      const res = await api.post('/otp/verify-cancel', { phone: cancelPhone, code: cancelOtpCode, shopSlug });
+      setCancelReservations(res.data.reservations);
+      setCancelView('list');
+    } catch (err) {
+      setCancelMsg(err.response?.data?.msg || 'Código incorrecto o expirado');
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
+  const handleCancelReservation = async (reservationId) => {
+    if (!window.confirm('¿Confirmas que querés cancelar este turno?')) return;
+    try {
+      await api.post('/public/cancel-reservation', { phone: cancelPhone, reservationId });
+      setCancelReservations((prev) => prev.filter((r) => r._id !== reservationId));
+    } catch (err) {
+      setCancelMsg(err.response?.data?.msg || 'Error cancelando turno');
+    }
   };
 
   // --- Reset para reservar otro turno ---
@@ -313,6 +364,92 @@ export default function Booking() {
         <button className="btn-confirm" type="button" onClick={resetForm}>
           Reservar otro turno
         </button>
+      </div>
+    );
+  }
+
+  // --- Vistas de cancelación ---
+  if (cancelView === 'phone') {
+    return (
+      <div className="app-card">
+        {shopLogo && <img src={shopLogo} alt={shopName} className="shop-logo" />}
+        <h1>{shopName}</h1>
+        <p className="subtitle">Cancelar turno</p>
+        <p className="otp-info">Ingresá el celular con el que registraste tu turno y te enviaremos un código de verificación.</p>
+        <form onSubmit={handleCancelPhoneSubmit}>
+          <input
+            className="input-text"
+            type="tel"
+            placeholder="Ej: 1161234567"
+            value={cancelPhone}
+            onChange={(e) => setCancelPhone(e.target.value)}
+            required
+          />
+          {cancelMsg && <p className="error-text">{cancelMsg}</p>}
+          <div className="form-actions-booking">
+            <button type="button" className="btn-secondary" onClick={() => { setCancelView(null); setCancelMsg(''); setCancelPhone(''); }}>Volver</button>
+            <button type="submit" className="btn-confirm" disabled={cancelLoading}>{cancelLoading ? 'Enviando...' : 'Enviar código'}</button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
+  if (cancelView === 'otp') {
+    return (
+      <div className="app-card">
+        {shopLogo && <img src={shopLogo} alt={shopName} className="shop-logo" />}
+        <h1>{shopName}</h1>
+        <p className="subtitle">Verificación</p>
+        <p className="otp-info">Te enviamos un código por WhatsApp al <strong>{cancelPhone}</strong>. Ingresalo para ver tus turnos.</p>
+        <form onSubmit={handleCancelOtpSubmit}>
+          <input
+            className="input-text input-otp"
+            type="text"
+            inputMode="numeric"
+            placeholder="Código de 6 dígitos"
+            maxLength={6}
+            value={cancelOtpCode}
+            onChange={(e) => setCancelOtpCode(e.target.value.replace(/\D/g, ''))}
+            required
+          />
+          {cancelMsg && <p className="error-text">{cancelMsg}</p>}
+          <div className="form-actions-booking">
+            <button type="button" className="btn-secondary" onClick={() => { setCancelView('phone'); setCancelMsg(''); setCancelOtpCode(''); }}>Volver</button>
+            <button type="submit" className="btn-confirm" disabled={cancelLoading}>{cancelLoading ? 'Verificando...' : 'Confirmar'}</button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
+  if (cancelView === 'list') {
+    return (
+      <div className="app-card">
+        {shopLogo && <img src={shopLogo} alt={shopName} className="shop-logo" />}
+        <h1>{shopName}</h1>
+        <p className="subtitle">Tus turnos</p>
+        {cancelReservations.length === 0 ? (
+          <p className="empty-msg">No tenés turnos activos en este negocio.</p>
+        ) : (
+          <div className="reservations-list">
+            {cancelReservations.map((r) => (
+              <div key={r._id} className="reservation-item pending">
+                <div className="reservation-header">
+                  <span className="reservation-date">{r.date} - {r.time}</span>
+                </div>
+                <div className="reservation-body">
+                  <strong>{r.activity?.title}</strong> con {r.barber?.name}
+                </div>
+                <div className="reservation-actions">
+                  <button type="button" className="btn-small btn-cancel-sm" onClick={() => handleCancelReservation(r._id)}>Cancelar turno</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {cancelMsg && <p className="error-text">{cancelMsg}</p>}
+        <button type="button" className="btn-secondary" style={{ marginTop: '16px' }} onClick={() => { setCancelView(null); setCancelMsg(''); }}>Volver al inicio</button>
       </div>
     );
   }
@@ -478,6 +615,9 @@ export default function Booking() {
         {msg && <p className="error-text">{msg}</p>}
         <button className="btn-confirm" type="button" onClick={goToClientStep}>
           Continuar
+        </button>
+        <button className="btn-secondary" type="button" style={{ marginTop: '12px' }} onClick={() => { setCancelView('phone'); setCancelMsg(''); }}>
+          Cancelar un turno existente
         </button>
       </div>
     );

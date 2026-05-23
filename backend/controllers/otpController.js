@@ -170,6 +170,62 @@ export const bookExisting = async (req, res) => {
   }
 };
 
+// --- CANCELACIÓN POR CLIENTE ---
+
+export const sendCancelOtp = async (req, res) => {
+  try {
+    const { phone, shopSlug } = req.body;
+    if (!phone) return res.status(400).json({ ok: false, msg: 'Celular obligatorio' });
+
+    const client = await Client.findOne({ phone });
+    if (!client) return res.status(404).json({ ok: false, msg: 'No encontramos turnos para ese número' });
+
+    const code = generateCode();
+    await Otp.deleteMany({ phone });
+    await Otp.create({ phone, code, name: client.name });
+
+    const shop = shopSlug ? await Barbershop.findOne({ slug: shopSlug.toLowerCase() }) : null;
+    if (shop?.whatsappEnabled) {
+      await waSend(shop._id.toString(), phone,
+        `*Código de verificación*\n\nHola ${client.name}! Para ver tus turnos ingresá el código: *${code}*\n\nVálido por 10 minutos.`
+      );
+    }
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, msg: 'Error enviando código' });
+  }
+};
+
+export const verifyAndGetReservations = async (req, res) => {
+  try {
+    const { phone, code, shopSlug } = req.body;
+    if (!phone || !code) return res.status(400).json({ ok: false, msg: 'Faltan datos' });
+
+    const otp = await Otp.findOne({ phone });
+    if (!otp || otp.code !== String(code)) {
+      return res.status(400).json({ ok: false, msg: 'Código incorrecto o expirado' });
+    }
+    await Otp.deleteMany({ phone });
+
+    const client = await Client.findOne({ phone });
+    if (!client) return res.status(404).json({ ok: false, msg: 'Cliente no encontrado' });
+
+    const shop = shopSlug ? await Barbershop.findOne({ slug: shopSlug.toLowerCase() }) : null;
+    const filter = { client: client._id, status: { $ne: 'cancelled' } };
+    if (shop) filter.shop = shop._id;
+
+    const reservations = await Reservation.find(filter)
+      .populate('barber', 'name')
+      .populate('activity', 'title')
+      .sort({ date: 1, time: 1 });
+
+    res.json({ ok: true, reservations });
+  } catch (e) {
+    res.status(500).json({ ok: false, msg: 'Error obteniendo turnos' });
+  }
+};
+
 function timeToMinutes(time) {
   const [h, m] = time.split(':').map(Number);
   return h * 60 + m;
