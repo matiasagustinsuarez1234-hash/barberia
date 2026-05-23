@@ -44,7 +44,7 @@ export const createClosedDay = async (req, res) => {
       .populate('client', 'name phone')
       .populate('barber', 'name')
       .populate('activity', 'title')
-      .populate('shop', 'name whatsappNumber');
+      .populate('shop', 'name slug whatsappEnabled whatsappNumber');
 
     let cancelledCount = 0;
     for (const r of reservations) {
@@ -56,7 +56,8 @@ export const createClosedDay = async (req, res) => {
       // Notificar al cliente por WhatsApp
       try {
         const shopDoc = r.shop;
-        if (shopDoc?.whatsappNumber) {
+        if (shopDoc?.whatsappEnabled) {
+          const bookingLink = shopDoc.slug ? `\n${process.env.PUBLIC_URL}/${shopDoc.slug}/turnos` : '';
           const msg =
             `*TURNO CANCELADO*\n\n` +
             `Hola ${r.client.name}, tu turno en *${shopDoc.name}* del ${date} fue cancelado.\n\n` +
@@ -64,7 +65,7 @@ export const createClosedDay = async (req, res) => {
             `Barbero: ${r.barber?.name}\n` +
             `Hora: ${r.time}\n` +
             `Motivo: ${r.cancellationReason}\n\n` +
-            `Podes reservar un nuevo turno cuando quieras.`;
+            `Podes reservar un nuevo turno cuando quieras:${bookingLink}`;
           waSend(shopDoc._id.toString(), r.client.phone, msg).catch((e) =>
             console.warn('[WA] Error notificando cancelacion por dia cerrado:', e.message),
           );

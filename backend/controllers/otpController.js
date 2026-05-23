@@ -337,6 +337,7 @@ async function _createReservation({ client, shopSlug, barberId, activityId, date
   }
   const priceLabel = `$${finalPrice.toLocaleString('es-AR')}`;
 
+  const bookingLink = shop.slug ? `\n\nPara ver o cancelar tu turno:\n${process.env.PUBLIC_URL}/${shop.slug}/turnos` : '';
   let confirmMsg = `*TURNO RESERVADO*\n\nHola ${client.name}!\nTu turno en *${shop.name}* fue registrado.\n\n`;
 
   if (additionalMembers?.length) {
@@ -351,7 +352,7 @@ async function _createReservation({ client, shopSlug, barberId, activityId, date
       `Fecha: ${date}\n` +
       `Hora: ${time}\n` +
       `Precio: ${priceLabel}\n\n` +
-      `Te esperamos!`;
+      `Te esperamos!${bookingLink}`;
   }
 
   if (shop.whatsappEnabled) {

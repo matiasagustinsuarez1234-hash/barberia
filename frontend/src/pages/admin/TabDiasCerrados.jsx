@@ -3,6 +3,7 @@ import api from '../../utils/api';
 
 export default function TabDiasCerrados() {
   const [closedDays, setClosedDays] = useState([]);
+  const [feriados, setFeriados] = useState([]);
   const [date, setDate] = useState('');
   const [reason, setReason] = useState('');
   const [msg, setMsg] = useState('');
@@ -11,7 +12,11 @@ export default function TabDiasCerrados() {
   const [confirmData, setConfirmData] = useState(null); // { date, reason, count, reservations }
 
   const load = () => api.get('/closed-days').then((r) => setClosedDays(r.data.closedDays)).catch(() => {});
-  useEffect(() => { load(); }, []);
+  const loadFeriados = () => {
+    const year = new Date().getFullYear();
+    api.get(`/public/feriados?year=${year}`).then((r) => setFeriados(r.data.feriados || [])).catch(() => {});
+  };
+  useEffect(() => { load(); loadFeriados(); }, []);
 
   const handleCheck = async (e) => {
     e.preventDefault();
@@ -125,6 +130,19 @@ export default function TabDiasCerrados() {
             </div>
             <div className="item-actions">
               <button type="button" className="btn-icon btn-danger" title="Reabrir dia" onClick={() => handleDelete(d._id)}>🗑</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <h3 style={{ marginTop: '24px' }}>Feriados nacionales {new Date().getFullYear()}</h3>
+      <p className="wa-subtitle">Estos días se bloquean automáticamente en el calendario de turnos.</p>
+      <div className="admin-list">
+        {feriados.map((f) => (
+          <div key={f.date} className="admin-list-item">
+            <div>
+              <strong>{f.date}</strong>
+              <span className="tag-list">{f.name}</span>
             </div>
           </div>
         ))}

@@ -6,6 +6,7 @@ import Barbershop from '../models/Barbershop.js';
 import ClosedDay from '../models/ClosedDay.js';
 import Client from '../models/Client.js';
 import { send as waSend } from '../utils/whatsappManager.js';
+import { getArgentinaFeriados } from '../utils/feriados.js';
 
 export const getPublicShops = async (req, res) => {
   try {
@@ -56,10 +57,19 @@ export const getPublicClosedDays = async (req, res) => {
     const { shop } = req.query;
     if (!shop) return res.status(400).json({ ok: false, msg: 'Falta shop' });
     const days = await ClosedDay.find({ shop }).select('date');
-    res.json({ ok: true, closedDates: days.map((d) => d.date) });
+    const year = new Date().getFullYear();
+    const feriados = getArgentinaFeriados(year).map((f) => f.date);
+    const nextYearFeriados = getArgentinaFeriados(year + 1).map((f) => f.date);
+    const allClosed = [...new Set([...days.map((d) => d.date), ...feriados, ...nextYearFeriados])];
+    res.json({ ok: true, closedDates: allClosed });
   } catch (error) {
     res.status(500).json({ ok: false, msg: 'Error obteniendo dias cerrados' });
   }
+};
+
+export const getPublicFeriados = (req, res) => {
+  const year = parseInt(req.query.year) || new Date().getFullYear();
+  res.json({ ok: true, feriados: getArgentinaFeriados(year) });
 };
 
 export const getAvailableSlots = async (req, res) => {

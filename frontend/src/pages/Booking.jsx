@@ -163,7 +163,7 @@ export default function Booking() {
 
   const handleDateSelect = (d) => {
     const key = toDateKey(d);
-    if (d.getDay() === 0 || closedDates.has(key)) return;
+    if (closedDates.has(key)) return;
     setDate(key);
     setSelectedTime('');
     setSlots([]);
@@ -543,16 +543,15 @@ export default function Booking() {
         <div className="section-title">Fecha</div>
         <div className="date-bar" ref={dateBarRef}>
           {dates.map((d, i) => {
-            const isSunday = d.getDay() === 0;
             const key = toDateKey(d);
             const isSelected = key === date;
             const isClosed = closedDates.has(key);
             return (
               <div
                 key={i}
-                className={`date-item${isSelected ? ' selected' : ''}${isSunday || isClosed ? ' disabled' : ''}`}
+                className={`date-item${isSelected ? ' selected' : ''}${isClosed ? ' disabled' : ''}`}
                 onClick={() => handleDateSelect(d)}
-                title={isClosed ? 'Cerrado' : isSunday ? 'Cerrado' : undefined}
+                title={isClosed ? 'Cerrado' : undefined}
               >
                 <span className="date-dow">{DAYS_ES[d.getDay()]}</span>
                 <span className="date-num">{d.getDate()}</span>
