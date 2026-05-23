@@ -33,7 +33,7 @@ export const upsertSubscription = async (req, res) => {
     const sub = await Subscription.findOneAndUpdate(
       { shop },
       { plan, status: status || 'active', startDate: new Date() },
-      { new: true, upsert: true },
+      { returnDocument: 'after', upsert: true },
     ).populate('shop', 'name').populate('plan', 'name price maxBarbers includesReminders');
     res.json({ ok: true, subscription: sub });
   } catch {

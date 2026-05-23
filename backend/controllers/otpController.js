@@ -313,6 +313,16 @@ async function _createReservation({ client, shopSlug, barberId, activityId, date
     waSend(shop._id.toString(), shop.whatsappNumber, adminMsg).catch((e) => console.warn('WA notificacion admin error:', e));
   }
 
+  if (shop.whatsappEnabled && barber.whatsapp) {
+    const barberMsg =
+      `*Nuevo turno*\n\n` +
+      `Cliente: ${client.name} (${client.phone})\n` +
+      `Servicio: ${activity.title}\n` +
+      `Fecha: ${date}\n` +
+      `Hora: ${time}`;
+    waSend(shop._id.toString(), barber.whatsapp, barberMsg).catch((e) => console.warn('WA notificacion barbero error:', e));
+  }
+
   return res.status(201).json({ ok: true, reservation: populated[0], reservations: populated });
 }
 

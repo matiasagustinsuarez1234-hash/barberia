@@ -3,6 +3,7 @@ import { validateJWT } from '../middlewares/validateJWT.js';
 import {
   centralStatus, centralConnect, centralQr, centralDisconnect,
   toggleShopWhatsapp, shopsWhatsappStatus,
+  getMetaCreds, saveMetaCreds, clearMetaCreds,
   status, connect, qr, disconnectWA,
 } from '../controllers/whatsappController.js';
 
@@ -16,6 +17,11 @@ router.post('/central/connect', centralConnect);
 router.post('/central/disconnect', centralDisconnect);
 router.get('/central/shops', shopsWhatsappStatus);
 router.patch('/central/shops/:id/toggle', toggleShopWhatsapp);
+
+// Meta Business API (shop propio)
+router.get('/meta', getMetaCreds);
+router.put('/meta', saveMetaCreds);
+router.delete('/meta', clearMetaCreds);
 
 // Sesión por shop (legacy)
 router.get('/status', status);

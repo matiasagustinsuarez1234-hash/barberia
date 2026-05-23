@@ -14,9 +14,10 @@ import TabClientes from './admin/TabClientes';
 import TabConfig from './admin/TabConfig';
 import TabQR from './admin/TabQR';
 import TabWhatsAppCentral from './admin/TabWhatsAppCentral';
+import TabWhatsApp from './admin/TabWhatsApp';
 
 const SUPER_TABS = ['Empresas', 'Admins', 'Planes', 'Suscripciones', 'WhatsApp'];
-const SHOP_TABS = ['Turnos', 'Barberos', 'Actividades', 'Horarios', 'Dias Cerrados', 'Clientes', 'Configuracion', 'QR'];
+const SHOP_TABS = ['Turnos', 'Barberos', 'Actividades', 'Horarios', 'Dias Cerrados', 'Clientes', 'Configuracion', 'WhatsApp Business', 'QR'];
 
 export default function AdminPanel() {
   const { role, shopName } = useAuth();
@@ -73,6 +74,7 @@ export default function AdminPanel() {
             {tab === 'Dias Cerrados' && <TabDiasCerrados />}
             {tab === 'Clientes' && <TabClientes />}
             {tab === 'Configuracion' && <TabConfig />}
+            {tab === 'WhatsApp Business' && <TabWhatsApp />}
             {tab === 'QR' && <TabQR shop={shop} shopLoading={shopLoading} shopUrl={shopUrl} copyMsg={copyMsg} handleCopyUrl={handleCopyUrl} handlePrintQr={handlePrintQr} />}
           </>
         )}

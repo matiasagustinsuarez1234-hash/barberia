@@ -145,7 +145,7 @@ export const updateReservationStatus = async (req, res) => {
           { path: 'client', select: 'name phone' },
           { path: 'barber', select: 'name' },
           { path: 'activity', select: 'title' },
-          { path: 'shop', select: 'name whatsappEnabled' },
+          { path: 'shop', select: 'name slug whatsappEnabled' },
         ]);
         const { client, barber, activity, shop } = reservation;
         if (!shop?.whatsappEnabled) return;
@@ -157,7 +157,8 @@ export const updateReservationStatus = async (req, res) => {
           `Fecha: ${reservation.date}\n` +
           `Hora: ${reservation.time}\n` +
           (reservation.cancellationReason ? `Motivo: ${reservation.cancellationReason}\n` : '') +
-          `\nPodes reservar un nuevo turno cuando quieras.`;
+          `\nPodes reservar un nuevo turno cuando quieras:` +
+          (shop.slug ? `\n${process.env.PUBLIC_URL}/${shop.slug}/turnos` : '');
         waSend(shopId, client.phone, msg).catch((e) => console.warn('[WA] Error enviando cancelacion:', e.message));
       } catch (e) {
         console.warn('[WA] Error preparando mensaje de cancelacion:', e.message);

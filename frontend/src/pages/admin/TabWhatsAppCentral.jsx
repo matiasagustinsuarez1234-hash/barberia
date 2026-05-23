@@ -102,7 +102,8 @@ export default function TabWhatsAppCentral() {
         )}
       </div>
 
-      <h3 className="wa-shops-title">Empresas</h3>
+      <h3 className="wa-shops-title">Notificaciones por empresa</h3>
+      <p className="wa-subtitle">Activá el WhatsApp para cada empresa que quieras que reciba mensajes automáticos (OTP, confirmaciones, recordatorios).</p>
       <div className="wa-shops-list">
         {shops.map((shop) => (
           <div key={shop._id} className="wa-shop-row">
@@ -113,7 +114,7 @@ export default function TabWhatsAppCentral() {
               onClick={() => handleToggle(shop._id)}
               disabled={toggling === shop._id}
             >
-              {shop.whatsappEnabled ? 'Habilitado' : 'Deshabilitado'}
+              {shop.whatsappEnabled ? '✅ WhatsApp activo' : '⛔ WhatsApp inactivo'}
             </button>
           </div>
         ))}

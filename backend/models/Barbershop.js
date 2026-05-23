@@ -13,6 +13,8 @@ const BarbershopSchema = new mongoose.Schema({
   active: { type: Boolean, default: true },
   mercadopagoEnabled: { type: Boolean, default: false },
   whatsappEnabled: { type: Boolean, default: true },
+  metaWaPhoneNumberId: { type: String },
+  metaWaToken: { type: String },
   createdAt: { type: Date, default: Date.now },
 });
 
