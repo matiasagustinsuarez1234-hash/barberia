@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import api from '../../utils/api';
 
 const STATUS_CLASS = { pending: 'status-pending', confirmed: 'status-confirmed', cancelled: 'status-cancelled' };
@@ -33,6 +33,50 @@ function isPastTime(time) {
   return h * 60 + m < now.getHours() * 60 + now.getMinutes();
 }
 
+// ── Popup de cliente ──────────────────────────────────────────────────────────
+function ClientPopup({ res, pos, onClose, onRemind, remindingId }) {
+  const popupRef = useRef(null);
+
+  // Ajustar posición para no salirse de la pantalla
+  useEffect(() => {
+    if (!popupRef.current) return;
+    const rect   = popupRef.current.getBoundingClientRect();
+    const vw     = window.innerWidth;
+    const vh     = window.innerHeight;
+    const el     = popupRef.current;
+    if (rect.right > vw - 8)  el.style.left = `${vw - rect.width - 8}px`;
+    if (rect.bottom > vh - 8) el.style.top  = `${pos.top - rect.height - 8}px`;
+  }, [pos]);
+
+  return (
+    <div
+      ref={popupRef}
+      className="client-popup"
+      style={{ top: pos.top, left: pos.left }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button type="button" className="cp-close" onClick={onClose}>✕</button>
+      <div className="cp-name">{res.client?.name || '—'}</div>
+      {res.client?.phone && (
+        <a className="cp-phone" href={`tel:+${res.client.phone}`} title="Llamar">
+          📞 {res.client.phone}
+        </a>
+      )}
+      {res.status === 'pending' && (
+        <button
+          type="button"
+          className="cp-remind-btn"
+          disabled={remindingId === res._id}
+          onClick={() => onRemind(res._id)}
+        >
+          {remindingId === res._id ? 'Enviando…' : '📲 Recordar turno'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ── Componente principal ──────────────────────────────────────────────────────
 export default function TabTurnos() {
   const [reservations, setReservations] = useState([]);
   const [schedules, setSchedules]       = useState([]);
@@ -40,6 +84,8 @@ export default function TabTurnos() {
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [showPast, setShowPast]         = useState(false);
   const [remindingId, setRemindingId]   = useState(null);
+  const [popupRes, setPopupRes]         = useState(null);
+  const [popupPos, setPopupPos]         = useState({ top: 0, left: 0 });
 
   const today   = new Date().toISOString().split('T')[0];
   const isToday = selectedDate === today;
@@ -54,6 +100,14 @@ export default function TabTurnos() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Cerrar popup al hacer click fuera
+  useEffect(() => {
+    if (!popupRes) return;
+    const close = () => setPopupRes(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [popupRes]);
+
   const changeStatus = async (id, status, reason) => {
     await api.patch(`/reservations/${id}/status`, { status, reason });
     setReservations((prev) => prev.map((r) => r._id === id ? { ...r, status } : r));
@@ -63,13 +117,21 @@ export default function TabTurnos() {
     setRemindingId(id);
     try { await api.post(`/reservations/${id}/remind`); } catch { /* */ }
     setRemindingId(null);
+    setPopupRes(null);
   };
 
-  // Cancelación con prompt nativo (mantiene la grilla compacta)
   const handleCancelPrompt = async (id) => {
     if (!window.confirm('¿Cancelar este turno?')) return;
     const reason = window.prompt('Motivo de cancelación (opcional — presioná OK para continuar):') ?? '';
     await changeStatus(id, 'cancelled', reason);
+  };
+
+  const handleOpenPopup = (e, r) => {
+    e.stopPropagation();
+    if (popupRes?._id === r._id) { setPopupRes(null); return; }
+    const rect = e.currentTarget.getBoundingClientRect();
+    setPopupPos({ top: rect.bottom + 6, left: rect.left });
+    setPopupRes(r);
   };
 
   const navigate = (delta) => {
@@ -82,7 +144,6 @@ export default function TabTurnos() {
   const dayOfWeek      = new Date(selectedDate + 'T00:00:00').getDay();
   const todaySchedules = schedules.filter((s) => s.weekday === dayOfWeek && s.active !== false);
 
-  // Slots del día (cada 30 min, unión de todos los barberos)
   let slots = [];
   if (todaySchedules.length > 0) {
     const minStart = Math.min(...todaySchedules.map((s) => timeToMin(s.startTime)));
@@ -90,7 +151,6 @@ export default function TabTurnos() {
     for (let t = minStart; t < maxEnd; t += 30) slots.push(minToTime(t));
   }
 
-  // Reservas del día por barbero (excluye cancelados)
   const resByBarber = {};
   reservations
     .filter((r) => r.date === selectedDate && r.status !== 'cancelled')
@@ -177,23 +237,17 @@ export default function TabTurnos() {
                             <span className="sg-client">{r.client?.name}</span>
                             <span className="sg-sep"> · </span>
                             <span className="sg-activity">{r.activity?.title}</span>
-                            {r.client?.phone && (
-                              <span className="sg-phone"> · {r.client.phone}</span>
-                            )}
                           </div>
                           <div className="sg-actions">
-                            {r.status === 'pending' && (
-                              <button
-                                type="button"
-                                className="btn-small"
-                                onClick={() => handleRemind(r._id)}
-                                disabled={remindingId === r._id}
-                                title="Enviar recordatorio por WhatsApp"
-                              >
-                                {remindingId === r._id ? '…' : '📲'}
-                              </button>
-                            )}
-<button
+                            <button
+                              type="button"
+                              className={`btn-small btn-client${popupRes?._id === r._id ? ' active' : ''}`}
+                              onClick={(e) => handleOpenPopup(e, r)}
+                              title="Ver cliente"
+                            >
+                              👤
+                            </button>
+                            <button
                               type="button"
                               className="btn-small btn-cancel-sm"
                               onClick={() => handleCancelPrompt(r._id)}
@@ -218,6 +272,17 @@ export default function TabTurnos() {
             <span className="sg-legend-item off">Fuera de horario</span>
           </div>
         </div>
+      )}
+
+      {/* Popup de cliente (fuera de la tabla para z-index correcto) */}
+      {popupRes && (
+        <ClientPopup
+          res={popupRes}
+          pos={popupPos}
+          onClose={() => setPopupRes(null)}
+          onRemind={handleRemind}
+          remindingId={remindingId}
+        />
       )}
     </div>
   );

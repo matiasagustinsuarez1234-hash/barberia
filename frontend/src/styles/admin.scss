@@ -773,16 +773,18 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 0.82rem;
-  min-width: 320px;
+  table-layout: fixed; // columnas de ancho fijo → 6 barberos entran sin scroll
 
   th {
     background: #111;
     color: #fff;
-    padding: 7px 10px;
+    padding: 6px 8px;
     font-weight: 600;
     font-size: 0.78rem;
     text-align: center;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .th-time {
@@ -880,8 +882,6 @@
 
   .sg-activity { color: #777; }
 
-  .sg-phone { color: #aaa; font-size: 0.72rem; }
-
   .sg-actions {
     display: flex;
     gap: 3px;
@@ -895,15 +895,15 @@
       border-radius: 5px;
       line-height: 1;
     }
-  }
 
-  // Indicador de turno confirmado
-  .sg-confirmed-badge {
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: #2563eb;
-    line-height: 1;
-    padding: 0 2px;
+    .btn-client {
+      background: #f0f0f0;
+      color: #333;
+      border: 1px solid #ddd;
+
+      &:hover  { background: #e0e0e0; }
+      &.active { background: #333; color: #fff; border-color: #333; }
+    }
   }
 }
 
@@ -933,6 +933,75 @@
     &.free::before    { background: #f0faf4; border: 1px solid #1a7a4a; }
     &.pending::before { background: #fff8f0; border-left: 3px solid #e07b00; }
     &.off::before     { background: #f5f5f5; border: 1px solid #ddd; }
+  }
+}
+
+/* ── Popup cliente ── */
+.client-popup {
+  position: fixed;
+  z-index: 1000;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  padding: 14px 16px 12px;
+  min-width: 210px;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  .cp-close {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: #999;
+    padding: 2px 4px;
+    line-height: 1;
+
+    &:hover { color: #333; }
+  }
+
+  .cp-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #111;
+    padding-right: 20px; // espacio para el botón ✕
+  }
+
+  .cp-phone {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.88rem;
+    color: #333;
+    font-weight: 500;
+    text-decoration: none;
+    background: #f5f5f5;
+    border-radius: 8px;
+    padding: 6px 10px;
+
+    &:hover { background: #ececec; color: #000; }
+  }
+
+  .cp-remind-btn {
+    background: #1a7a4a;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    text-align: center;
+
+    &:hover    { background: #155e39; }
+    &:disabled { opacity: 0.55; cursor: not-allowed; }
   }
 }
 
