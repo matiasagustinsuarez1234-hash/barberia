@@ -112,17 +112,22 @@ async function run() {
     await mongoose.disconnect(); return;
   }
 
-  // ── --limpiar-todo: turnos + barberos demo + sus horarios ─────────────────
+  // ── --limpiar-todo: borra TODO del shop y re-siembra desde cero ───────────
   if (LIMPIAR_TODO) {
-    const res = await Reservation.deleteMany({ shop: shop._id, notes: '[TEST]' });
-    const demoBarbers = await Barber.find({ shop: shop._id, name: { $regex: `^\\${DEMO_PREFIX}` } });
-    const demoIds = demoBarbers.map(b => b._id);
-    const sch = await Schedule.deleteMany({ barber: { $in: demoIds } });
-    const bar = await Barber.deleteMany({ _id: { $in: demoIds } });
-    console.log(`🗑   Turnos borrados:  ${res.deletedCount}`);
-    console.log(`🗑   Barberos borrados: ${bar.deletedCount}`);
-    console.log(`🗑   Horarios borrados: ${sch.deletedCount}\n`);
-    await mongoose.disconnect(); return;
+    console.log(`\n🗑   Limpiando todo el shop "${shop.name}"...`);
+
+    const allBarbers = await Barber.find({ shop: shop._id }, '_id');
+    const allIds     = allBarbers.map(b => b._id);
+
+    const res = await Reservation.deleteMany({ shop: shop._id });
+    const sch = await Schedule.deleteMany({ shop: shop._id });
+    const bar = await Barber.deleteMany({ shop: shop._id });
+
+    console.log(`    Reservas borradas: ${res.deletedCount}`);
+    console.log(`    Horarios borrados: ${sch.deletedCount}`);
+    console.log(`    Barberos borrados: ${bar.deletedCount}`);
+    console.log(`\n🌱  Iniciando seed desde cero...\n`);
+    // No desconectar — continuar con el seed a continuación
   }
 
   // ── Buscar/crear cliente de prueba ────────────────────────────────────────
