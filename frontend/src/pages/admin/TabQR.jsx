@@ -41,101 +41,196 @@ async function fetchAsDataUrl(url) {
   }
 }
 
-/** Genera el HTML completo de las 6 tarjetas para imprimir */
+/** Genera el HTML con 8 estilos distintos de tarjeta para elegir */
 function buildPrintHtml({ qrPng, shopImgDataUrl, shopName }) {
   const hasImg = !!shopImgDataUrl;
-  const qrSizeMm = hasImg ? 44 : 58;
+  const n = shopName;
+  const q = qrPng;
+  const im = shopImgDataUrl;
 
-  const imgBlock = hasImg
-    ? `<img class="shop-img" src="${shopImgDataUrl}" alt="${shopName}">`
-    : '';
+  // Bloque imagen reutilizable
+  const imgNormal  = hasImg ? `<img class="si" src="${im}" alt="">` : '';
+  const imgWhite   = hasImg ? `<img class="si" src="${im}" alt="" style="filter:brightness(0) invert(1);opacity:.85">` : '';
+  const imgBox     = hasImg ? `<div class="img-box">${imgNormal}</div>` : '';
 
-  const card = `
-    <div class="card">
-      ${imgBlock}
-      <img class="qr" src="${qrPng}" alt="QR turnos">
-      <p class="name">${shopName}</p>
-    </div>`;
+  const cards = `
 
-  const cards = Array(6).fill(card).join('');
+<!-- 1: Horizontal clásico: QR izq | imagen+nombre der -->
+<div class="card" style="flex-direction:row;overflow:hidden">
+  <div class="col" style="width:50mm;background:#fff;justify-content:center">
+    <img class="qr" src="${q}">
+  </div>
+  <div style="width:.3mm;background:#e0e0e0;margin:5mm 0;flex-shrink:0"></div>
+  <div class="col" style="flex:1;background:#fff;gap:2.5mm">
+    ${imgNormal}<p class="nm">${n}</p><p class="sh">Escaneá para sacar turno</p>
+  </div>
+  <span class="num">1</span>
+</div>
+
+<!-- 2: Invertido: imagen+nombre izq | QR der -->
+<div class="card" style="flex-direction:row;overflow:hidden">
+  <div class="col" style="flex:1;background:#fff;gap:2.5mm">
+    ${imgNormal}<p class="nm">${n}</p><p class="sh">Reservá tu turno online</p>
+  </div>
+  <div style="width:.3mm;background:#e0e0e0;margin:5mm 0;flex-shrink:0"></div>
+  <div class="col" style="width:50mm;background:#fff;justify-content:center">
+    <img class="qr" src="${q}">
+  </div>
+  <span class="num">2</span>
+</div>
+
+<!-- 3: Dark: fondo negro -->
+<div class="card" style="flex-direction:row;overflow:hidden;background:#111">
+  <div class="col" style="width:50mm;background:#111;justify-content:center">
+    <img class="qr" src="${q}" style="filter:invert(1)">
+  </div>
+  <div style="width:.3mm;background:#333;margin:5mm 0;flex-shrink:0"></div>
+  <div class="col" style="flex:1;background:#111;gap:2.5mm">
+    ${imgBox}<p class="nm" style="color:#fff">${n}</p><p class="sh" style="color:#777">Escaneá para sacar turno</p>
+  </div>
+  <span class="num" style="color:#444">3</span>
+</div>
+
+<!-- 4: Verde oscuro -->
+<div class="card" style="flex-direction:row;overflow:hidden">
+  <div class="col" style="width:50mm;background:#fff;justify-content:center">
+    <img class="qr" src="${q}">
+  </div>
+  <div style="width:.3mm;background:#1a7a4a44;margin:4mm 0;flex-shrink:0"></div>
+  <div class="col" style="flex:1;background:#1a7a4a;gap:2.5mm">
+    ${imgBox}<p class="nm" style="color:#fff">${n}</p><p class="sh" style="color:#a8d5bc">Escaneá para sacar turno</p>
+  </div>
+  <span class="num" style="color:#1a7a4a">4</span>
+</div>
+
+<!-- 5: Solo nombre grande (sin imagen, QR grande) -->
+<div class="card" style="flex-direction:row;overflow:hidden">
+  <div class="col" style="width:48mm;background:#fff;justify-content:center">
+    <img class="qr" src="${q}" style="width:37mm;height:37mm">
+  </div>
+  <div style="width:.3mm;background:#e0e0e0;margin:5mm 0;flex-shrink:0"></div>
+  <div class="col" style="flex:1;background:#fff;gap:3mm">
+    <p style="font-size:11pt;font-weight:900;color:#111;text-transform:uppercase;letter-spacing:.04em;text-align:center;line-height:1.2">${n}</p>
+    <p class="sh">Escaneá y reservá<br>tu turno online</p>
+  </div>
+  <span class="num">5</span>
+</div>
+
+<!-- 6: Banner superior con nombre, QR+imagen abajo -->
+<div class="card" style="flex-direction:column;overflow:hidden">
+  <div style="background:#111;width:100%;padding:2.5mm 5mm;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+    <p style="color:#fff;font-size:9pt;font-weight:700;text-transform:uppercase;letter-spacing:.06em">${n}</p>
+  </div>
+  <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5mm;padding:2mm 4mm;background:#fff">
+    <img class="qr" src="${q}" style="width:37mm;height:37mm">
+    ${hasImg ? `<img class="si" src="${im}" alt="" style="max-height:28mm;max-width:35mm">` : ''}
+  </div>
+  <span class="num">6</span>
+</div>
+
+<!-- 7: Marco interior doble -->
+<div class="card" style="padding:3mm;justify-content:center;align-items:center;background:#fff">
+  <div style="border:.4mm solid #111;border-radius:2mm;width:100%;height:100%;display:flex;align-items:center;justify-content:center;gap:3mm;padding:2.5mm 3mm">
+    <img class="qr" src="${q}" style="width:34mm;height:34mm;flex-shrink:0">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:2mm">
+      ${hasImg ? `<img class="si" src="${im}" alt="" style="max-height:18mm;max-width:33mm">` : ''}
+      <p class="nm" style="font-size:7.5pt">${n}</p>
+      <p class="sh">Escaneá para sacar turno</p>
+    </div>
+  </div>
+  <span class="num">7</span>
+</div>
+
+<!-- 8: Imagen de fondo semitransparente -->
+<div class="card" style="position:relative;justify-content:center;align-items:center;flex-direction:row;gap:4mm;overflow:hidden;background:#fff">
+  ${hasImg ? `<img src="${im}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.1">` : ''}
+  <img class="qr" src="${q}" style="position:relative;width:36mm;height:36mm;background:#fff;padding:1mm;border-radius:1.5mm;box-shadow:0 0 0 .3mm #ddd">
+  <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:2.5mm;flex:1">
+    ${hasImg ? `<img class="si" src="${im}" alt="" style="max-height:20mm;max-width:100%">` : ''}
+    <p class="nm">${n}</p>
+    <p class="sh">Escaneá para sacar turno</p>
+  </div>
+  <span class="num">8</span>
+</div>`;
 
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>Tarjetas QR — ${shopName}</title>
+<title>Estilos QR — ${n}</title>
 <style>
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-
   @page { size: A4 portrait; margin: 10mm; }
 
-  body {
-    font-family: Arial, Helvetica, sans-serif;
-    background: #fff;
-    color: #111;
-  }
+  body { font-family: Arial, Helvetica, sans-serif; background: #fff; }
 
   .hint {
-    text-align: center;
-    color: #999;
-    font-size: 10px;
-    padding: 6px 0 10px;
-    letter-spacing: 0.02em;
+    text-align: center; color: #999; font-size: 9.5px;
+    padding: 4px 0 8px; letter-spacing: .02em;
   }
 
   .grid {
     display: grid;
-    grid-template-columns: repeat(2, 92mm);
-    grid-template-rows: repeat(3, 86mm);
-    gap: 4mm;
+    grid-template-columns: repeat(2, 88mm);
+    grid-template-rows: repeat(4, 54mm);
+    gap: 4mm 6mm;
     justify-content: center;
   }
 
+  /* Base de todas las tarjetas */
   .card {
-    width: 92mm;
-    height: 86mm;
-    border: 0.4mm dashed #bbb;
+    width: 88mm; height: 54mm;
+    border: .4mm dashed #bbb;
     border-radius: 3mm;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 4mm 5mm;
-    gap: 2.5mm;
-    break-inside: avoid;
-    page-break-inside: avoid;
+    display: flex; align-items: stretch;
+    break-inside: avoid; page-break-inside: avoid;
+    position: relative;
   }
 
-  .shop-img {
-    max-height: 19mm;
-    max-width: 80mm;
-    object-fit: contain;
+  /* Columna flex genérica */
+  .col {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 3.5mm 4mm;
   }
 
-  .qr {
-    width: ${qrSizeMm}mm;
-    height: ${qrSizeMm}mm;
-    display: block;
-    image-rendering: pixelated;
+  /* Imagen de la tienda */
+  .si { max-height: 26mm; max-width: 100%; object-fit: contain; }
+
+  /* Contenedor blanco para imagen sobre fondo oscuro */
+  .img-box {
+    background: #fff; border-radius: 1.5mm;
+    padding: 1.5mm 2mm; display: flex;
+    align-items: center; justify-content: center;
+  }
+  .img-box .si { max-height: 20mm; max-width: 30mm; }
+
+  /* QR estándar */
+  .qr { width: 36mm; height: 36mm; display: block; image-rendering: pixelated; }
+
+  /* Nombre */
+  .nm {
+    font-size: 8pt; font-weight: 700; text-align: center;
+    text-transform: uppercase; letter-spacing: .04em;
+    line-height: 1.2; color: #111;
   }
 
-  .name {
-    font-size: 10.5pt;
-    font-weight: 700;
-    text-align: center;
-    line-height: 1.2;
-    max-width: 80mm;
+  /* Subtexto */
+  .sh { font-size: 6pt; color: #aaa; text-align: center; line-height: 1.3; }
+
+  /* Número de estilo */
+  .num {
+    position: absolute; bottom: 1.5mm; right: 2mm;
+    font-size: 6pt; color: #ccc; font-weight: 700;
   }
 
-  @media print {
-    .hint { display: none; }
-  }
+  @media print { .hint { display: none; } }
 </style>
 </head>
 <body>
   <p class="hint">
-    Imprimí y recortá por las líneas punteadas &nbsp;·&nbsp;
-    Para guardar como PDF usá "Guardar como PDF" en el diálogo de impresión
+    Elegí el estilo que más te gusta (numerados en la esquina inferior derecha) &nbsp;·&nbsp;
+    Pedí ese número multiplicado para imprimir en serie
   </p>
   <div class="grid">${cards}</div>
 </body>

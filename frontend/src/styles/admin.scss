@@ -639,8 +639,59 @@
     background: #f0f7f3;
     border-color: #c2e0cf;
     color: #1a7a4a;
+    display: flex;
+    align-items: center;
+    gap: 6px;
     &.active { background: #1a7a4a; color: #fff; border-color: #1a7a4a; }
     &:hover:not(.active) { background: #dff0e8; }
+  }
+}
+
+.barber-count {
+  background: rgba(0,0,0,0.15);
+  border-radius: 20px;
+  padding: 0px 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.6;
+
+  .active & {
+    background: rgba(255,255,255,0.25);
+  }
+}
+
+/* ── Teléfono del cliente en turno ── */
+.client-phone {
+  font-size: 0.8rem;
+  color: #666;
+  margin: 0 6px;
+  font-weight: 400;
+}
+
+/* ── Búsqueda de clientes ── */
+.client-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+
+  input {
+    flex: 1;
+    padding: 9px 14px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    &:focus { outline: none; border-color: #000; }
+  }
+
+  button {
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 4px 6px;
+    &:hover { color: #333; }
   }
 }
 

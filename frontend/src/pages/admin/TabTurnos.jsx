@@ -67,17 +67,25 @@ export default function TabTurnos() {
     const next = addDays(selectedDate, delta);
     if (next < today) return; // no retroceder antes de hoy
     setSelectedDate(next);
+    setBarberFilter('all');
     setCancelingId(null);
     setCancelReason('');
   };
 
-  // Barberos únicos del día seleccionado
-  const barbersOfDay = [...new Map(
+  // Barberos únicos en todos los turnos (para mostrar el filtro siempre que haya más de uno)
+  const allBarbers = [...new Map(
     reservations
-      .filter((r) => r.date === selectedDate)
       .map((r) => [r.barber?._id, r.barber])
       .filter(([id]) => id)
   ).values()];
+
+  // Conteo de turnos por barbero en el día seleccionado
+  const countByBarber = reservations.reduce((acc, r) => {
+    if (r.date === selectedDate && r.barber?._id) {
+      acc[r.barber._id] = (acc[r.barber._id] || 0) + 1;
+    }
+    return acc;
+  }, {});
 
   const visible = reservations.filter((r) => {
     if (r.date !== selectedDate) return false;
@@ -118,7 +126,7 @@ export default function TabTurnos() {
           <button
             type="button"
             className="date-nav-today"
-            onClick={() => setSelectedDate(today)}
+            onClick={() => { setSelectedDate(today); setBarberFilter('all'); }}
           >
             Hoy
           </button>
@@ -134,8 +142,8 @@ export default function TabTurnos() {
         ))}
       </div>
 
-      {/* Filtro por barbero (solo si hay más de uno en ese día) */}
-      {barbersOfDay.length > 1 && (
+      {/* Filtro por barbero (aparece siempre que haya más de uno en el sistema) */}
+      {allBarbers.length > 1 && (
         <div className="filter-bar barber-filter-bar">
           <button
             type="button"
@@ -144,16 +152,20 @@ export default function TabTurnos() {
           >
             Todos
           </button>
-          {barbersOfDay.map((b) => (
-            <button
-              key={b._id}
-              type="button"
-              className={`filter-btn ${barberFilter === b._id ? 'active' : ''}`}
-              onClick={() => setBarberFilter(b._id)}
-            >
-              {b.name}
-            </button>
-          ))}
+          {allBarbers.map((b) => {
+            const count = countByBarber[b._id] || 0;
+            return (
+              <button
+                key={b._id}
+                type="button"
+                className={`filter-btn ${barberFilter === b._id ? 'active' : ''}`}
+                onClick={() => setBarberFilter(b._id)}
+              >
+                {b.name}
+                {count > 0 && <span className="barber-count">{count}</span>}
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -180,7 +192,9 @@ export default function TabTurnos() {
                 <span className={`badge ${STATUS_CLASS[r.status]}`}>{STATUS_LABEL[r.status]}</span>
               </div>
               <div className="reservation-body">
-                <strong>{r.client?.name}</strong> &mdash; {r.activity?.title} con {r.barber?.name}
+                <strong>{r.client?.name}</strong>
+                {r.client?.phone && <span className="client-phone">📞 {r.client.phone}</span>}
+                &mdash; {r.activity?.title} con {r.barber?.name}
               </div>
               {r.cancellationReason && (
                 <div className="cancellation-reason">Motivo: {r.cancellationReason}</div>

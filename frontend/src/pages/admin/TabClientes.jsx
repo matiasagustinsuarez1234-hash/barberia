@@ -3,6 +3,7 @@ import api from '../../utils/api';
 
 export default function TabClientes() {
   const [clients, setClients] = useState([]);
+  const [search, setSearch] = useState('');
   const [form, setForm] = useState({ name: '', username: '', password: '', phone: '', email: '' });
   const [editing, setEditing] = useState(null);
   const [msg, setMsg] = useState('');
@@ -50,9 +51,23 @@ export default function TabClientes() {
         </div>
         {msg && <p className="error-text">{msg}</p>}
       </form>
+      <div className="client-search-bar">
+        <input
+          type="text"
+          placeholder="Buscar por nombre..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        {search && (
+          <button type="button" onClick={() => setSearch('')}>✕</button>
+        )}
+      </div>
+
       <div className="admin-list">
         {clients.length === 0 && <p className="empty-msg">Sin clientes aun.</p>}
-        {clients.map((c) => (
+        {clients
+          .filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
+          .map((c) => (
           <div key={c._id} className="admin-list-item">
             <div>
               <strong>{c.name}</strong>
@@ -65,6 +80,9 @@ export default function TabClientes() {
             </div>
           </div>
         ))}
+        {clients.length > 0 && search && clients.filter((c) => c.name.toLowerCase().includes(search.toLowerCase())).length === 0 && (
+          <p className="empty-msg">Sin resultados para "{search}".</p>
+        )}
       </div>
     </div>
   );
