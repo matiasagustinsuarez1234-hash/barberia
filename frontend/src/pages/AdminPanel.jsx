@@ -42,7 +42,6 @@ export default function AdminPanel() {
   }, [isSuperAdmin]);
 
   const shopUrl = shop?.slug ? `${window.location.origin}/${shop.slug}/turnos` : null;
-  const handlePrintQr = () => window.print();
   const handleCopyUrl = async () => {
     if (!shopUrl) return;
     await navigator.clipboard.writeText(shopUrl);
@@ -80,7 +79,7 @@ export default function AdminPanel() {
             {tab === 'Clientes' && <TabClientes />}
             {tab === 'Configuracion' && <TabConfig />}
             {tab === 'WhatsApp Business' && <TabWhatsApp />}
-            {tab === 'QR' && <TabQR shop={shop} shopLoading={shopLoading} shopUrl={shopUrl} copyMsg={copyMsg} handleCopyUrl={handleCopyUrl} handlePrintQr={handlePrintQr} />}
+            {tab === 'QR' && <TabQR shop={shop} shopLoading={shopLoading} shopUrl={shopUrl} copyMsg={copyMsg} handleCopyUrl={handleCopyUrl} />}
           </>
         )}
       </div>

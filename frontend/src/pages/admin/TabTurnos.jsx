@@ -4,17 +4,25 @@ import api from '../../utils/api';
 const STATUS_LABEL = { pending: 'Pendiente', confirmed: 'Confirmado', cancelled: 'Cancelado' };
 const STATUS_CLASS = { pending: 'badge-pending', confirmed: 'badge-confirmed', cancelled: 'badge-cancelled' };
 
-function isPast(date, time) {
+function addDays(dateStr, days) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split('T')[0];
+}
+
+function formatDateLabel(dateStr) {
+  const today = new Date().toISOString().split('T')[0];
+  const tomorrow = addDays(today, 1);
+  if (dateStr === today) return 'Hoy';
+  if (dateStr === tomorrow) return 'Mañana';
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+function isPastTime(time) {
   const now = new Date();
-  const today = now.toISOString().split('T')[0];
-  if (date < today) return true;
-  if (date === today) {
-    const [h, m] = time.split(':').map(Number);
-    const slotMinutes = h * 60 + m;
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    return slotMinutes < nowMinutes;
-  }
-  return false;
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m < now.getHours() * 60 + now.getMinutes();
 }
 
 export default function TabTurnos() {
@@ -23,12 +31,19 @@ export default function TabTurnos() {
   const [filter, setFilter] = useState('all');
   const [barberFilter, setBarberFilter] = useState('all');
   const [showPastToday, setShowPastToday] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [cancelingId, setCancelingId] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
   const [remindingId, setRemindingId] = useState(null);
 
+  const today = new Date().toISOString().split('T')[0];
+  const isToday = selectedDate === today;
+
   useEffect(() => {
-    api.get('/reservations').then((r) => setReservations(r.data.reservations)).catch(() => {}).finally(() => setLoading(false));
+    api.get('/reservations')
+      .then((r) => setReservations(r.data.reservations))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   const changeStatus = async (id, status, reason) => {
@@ -48,19 +63,26 @@ export default function TabTurnos() {
     setCancelReason('');
   };
 
-  // Barberos únicos de todos los turnos
-  const barbers = [...new Map(reservations.map((r) => [r.barber?._id, r.barber]).filter(([id]) => id)).values()];
+  const navigate = (delta) => {
+    const next = addDays(selectedDate, delta);
+    if (next < today) return; // no retroceder antes de hoy
+    setSelectedDate(next);
+    setCancelingId(null);
+    setCancelReason('');
+  };
 
-  const today = new Date().toISOString().split('T')[0];
+  // Barberos únicos del día seleccionado
+  const barbersOfDay = [...new Map(
+    reservations
+      .filter((r) => r.date === selectedDate)
+      .map((r) => [r.barber?._id, r.barber])
+      .filter(([id]) => id)
+  ).values()];
 
   const visible = reservations.filter((r) => {
-    // Ocultar días anteriores siempre
-    if (r.date < today) return false;
-    // Ocultar turnos pasados del día de hoy a menos que showPastToday
-    if (!showPastToday && isPast(r.date, r.time)) return false;
-    // Filtro de estado
+    if (r.date !== selectedDate) return false;
+    if (isToday && !showPastToday && isPastTime(r.time)) return false;
     if (filter !== 'all' && r.status !== filter) return false;
-    // Filtro de barbero
     if (barberFilter !== 'all' && r.barber?._id !== barberFilter) return false;
     return true;
   });
@@ -69,6 +91,40 @@ export default function TabTurnos() {
 
   return (
     <div>
+      {/* Navegador de días */}
+      <div className="date-navigator">
+        <button
+          type="button"
+          className="date-nav-btn"
+          onClick={() => navigate(-1)}
+          disabled={isToday}
+          title="Día anterior"
+        >
+          ‹
+        </button>
+        <div className="date-nav-label">
+          <span className="date-nav-main">{formatDateLabel(selectedDate)}</span>
+          {!isToday && <span className="date-nav-sub">{selectedDate}</span>}
+        </div>
+        <button
+          type="button"
+          className="date-nav-btn"
+          onClick={() => navigate(1)}
+          title="Día siguiente"
+        >
+          ›
+        </button>
+        {!isToday && (
+          <button
+            type="button"
+            className="date-nav-today"
+            onClick={() => setSelectedDate(today)}
+          >
+            Hoy
+          </button>
+        )}
+      </div>
+
       {/* Filtros de estado */}
       <div className="filter-bar">
         {['all', 'pending', 'confirmed', 'cancelled'].map((f) => (
@@ -78,17 +134,17 @@ export default function TabTurnos() {
         ))}
       </div>
 
-      {/* Filtro por barbero */}
-      {barbers.length > 1 && (
+      {/* Filtro por barbero (solo si hay más de uno en ese día) */}
+      {barbersOfDay.length > 1 && (
         <div className="filter-bar barber-filter-bar">
           <button
             type="button"
             className={`filter-btn ${barberFilter === 'all' ? 'active' : ''}`}
             onClick={() => setBarberFilter('all')}
           >
-            Todos los barberos
+            Todos
           </button>
-          {barbers.map((b) => (
+          {barbersOfDay.map((b) => (
             <button
               key={b._id}
               type="button"
@@ -101,24 +157,26 @@ export default function TabTurnos() {
         </div>
       )}
 
-      {/* Toggle para ver pasados de hoy */}
-      <label className="show-past-toggle">
-        <input
-          type="checkbox"
-          checked={showPastToday}
-          onChange={(e) => setShowPastToday(e.target.checked)}
-        />
-        <span>Mostrar turnos de hoy ya pasados</span>
-      </label>
+      {/* Toggle pasados (solo hoy) */}
+      {isToday && (
+        <label className="show-past-toggle">
+          <input
+            type="checkbox"
+            checked={showPastToday}
+            onChange={(e) => setShowPastToday(e.target.checked)}
+          />
+          <span>Mostrar turnos ya pasados</span>
+        </label>
+      )}
 
       {visible.length === 0 ? (
-        <p className="empty-msg">Sin turnos para mostrar.</p>
+        <p className="empty-msg">Sin turnos para este día.</p>
       ) : (
         <div className="reservations-list">
           {visible.map((r) => (
             <div key={r._id} className={`reservation-item ${r.status}`}>
               <div className="reservation-header">
-                <span className="reservation-date">{r.date} - {r.time}</span>
+                <span className="reservation-date">{r.time}</span>
                 <span className={`badge ${STATUS_CLASS[r.status]}`}>{STATUS_LABEL[r.status]}</span>
               </div>
               <div className="reservation-body">
