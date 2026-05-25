@@ -20,7 +20,7 @@ export const addWorkedFeriado = async (req, res) => {
     await WorkableFeriado.findOneAndUpdate(
       { shop: shopId, date },
       { shop: shopId, date },
-      { upsert: true, new: true },
+      { upsert: true },
     );
     res.json({ ok: true });
   } catch {
