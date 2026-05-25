@@ -68,6 +68,61 @@ button, input, select, textarea { font: inherit; }
   font-size: 0.9rem;
 }
 
+/* ── Topbar admin (3 columnas: label | identidad | usuario) ── */
+.topbar-admin {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 10px 24px;
+  background: $main-bg;
+  border-bottom: 1px solid #eee;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.topbar-panel-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #aaa;
+}
+
+.topbar-shop-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topbar-shop-logo {
+  height: 48px;
+  width: auto;
+  object-fit: contain;
+  border-radius: 7px;
+}
+
+.topbar-shop-name {
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 2rem;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  justify-self: end;
+}
+
+.topbar-username {
+  font-size: 1rem;
+  color: #888;
+  font-weight: 500;
+}
+
 .page-content { padding: 24px 20px; }
 
 /* ── Cards ── */

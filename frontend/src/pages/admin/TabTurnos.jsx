@@ -40,7 +40,7 @@ function formatMoney(n) {
 }
 
 // ── Popup de cliente ──────────────────────────────────────────────────────────
-function ClientPopup({ res, pos, onClose, onRemind, remindingId }) {
+function ClientPopup({ res, pos, onClose, onRemind, onCancel, remindingId }) {
   const popupRef = useRef(null);
 
   useEffect(() => {
@@ -77,6 +77,13 @@ function ClientPopup({ res, pos, onClose, onRemind, remindingId }) {
           {remindingId === res._id ? 'Enviando…' : '📲 Recordar turno'}
         </button>
       )}
+      <button
+        type="button"
+        className="cp-cancel-btn"
+        onClick={() => { onClose(); onCancel(res._id); }}
+      >
+        ✕ Cancelar turno
+      </button>
     </div>
   );
 }
@@ -251,9 +258,8 @@ export default function TabTurnos() {
                         <td key={s._id} className={`sg-start ${STATUS_CLASS[r.status]}${past ? ' sg-is-past' : ''}`}>
                           <div className="sg-cell-main">
                             <div className="sg-cell-info">
-                              <span className="sg-client">{r.client?.name}</span>
-                              <span className="sg-sep"> · </span>
-                              <span className="sg-activity">{r.activity?.title}</span>
+                              <div className="sg-client">{r.client?.name}</div>
+                              <div className="sg-activity">{r.activity?.title}</div>
                             </div>
                             <div className="sg-actions">
                               <button
@@ -263,14 +269,6 @@ export default function TabTurnos() {
                                 title="Ver cliente"
                               >
                                 👤
-                              </button>
-                              <button
-                                type="button"
-                                className="btn-small btn-cancel-sm"
-                                onClick={() => handleCancelPrompt(r._id)}
-                                title="Cancelar turno"
-                              >
-                                ✕
                               </button>
                             </div>
                           </div>
@@ -315,6 +313,7 @@ export default function TabTurnos() {
           pos={popupPos}
           onClose={() => setPopupRes(null)}
           onRemind={handleRemind}
+          onCancel={handleCancelPrompt}
           remindingId={remindingId}
         />
       )}

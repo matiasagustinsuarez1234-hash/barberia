@@ -52,8 +52,6 @@ export default function AdminPanel() {
 
   return (
     <div className="admin-card">
-      <h1>Panel {isSuperAdmin ? 'Super Admin' : 'Admin'}</h1>
-      {!isSuperAdmin && shopName && <p className="admin-shop-name">{shopName}</p>}
       <div className="tabs">
         {tabs.map((t) => (
           <button key={t} type="button" className={`tab-btn ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>
