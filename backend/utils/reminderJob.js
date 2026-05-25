@@ -1,7 +1,12 @@
 import cron from 'node-cron';
 import Reservation from '../models/Reservation.js';
 import Subscription from '../models/Subscription.js';
+import ReminderLog from '../models/ReminderLog.js';
 import { send as waSend } from './whatsappManager.js';
+
+// Pausa entre mensajes para no saturar la API de WhatsApp/Twilio
+const DELAY_MS = 2000; // 2 segundos entre cada envío
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function sendDailyReminders() {
   const today = new Date().toISOString().split('T')[0];
@@ -16,6 +21,7 @@ async function sendDailyReminders() {
 
   if (reservations.length === 0) {
     console.log('[Recordatorios] Sin turnos pendientes para hoy.');
+    await ReminderLog.create({ date: today, sent: 0, errors: 0, skipped: 0, failedList: [] });
     return;
   }
 
@@ -24,17 +30,21 @@ async function sendDailyReminders() {
   const subs = await Subscription.find({ shop: { $in: shopIds }, status: 'active' }).populate('plan', 'includesReminders');
   const subByShop = Object.fromEntries(subs.map((s) => [s.shop.toString(), s]));
 
+  const toSend = reservations.filter((r) => subByShop[r.shop._id.toString()]?.plan?.includesReminders);
+  const skipped = reservations.length - toSend.length;
+
+  console.log(
+    `[Recordatorios] ${toSend.length} a enviar, ${skipped} omitidos (sin plan). ` +
+    `Ritmo: 1 cada ${DELAY_MS / 1000}s → ~${Math.ceil(toSend.length * DELAY_MS / 60000)} min.`
+  );
+
   let sent = 0;
-  let skipped = 0;
+  let errors = 0;
+  const failedList = [];
 
-  for (const r of reservations) {
+  for (let i = 0; i < toSend.length; i++) {
+    const r = toSend[i];
     const shopId = r.shop._id.toString();
-    const sub = subByShop[shopId];
-
-    if (!sub?.plan?.includesReminders) {
-      skipped++;
-      continue;
-    }
 
     const msg =
       `*Recordatorio de turno*\n\n` +
@@ -47,17 +57,23 @@ async function sendDailyReminders() {
     try {
       await waSend(shopId, r.client.phone, msg);
       sent++;
-      console.log(`[Recordatorios] Enviado a ${r.client.name} (${r.client.phone})`);
+      console.log(`[Recordatorios] (${i + 1}/${toSend.length}) ✓ ${r.client.name} (${r.client.phone})`);
     } catch (e) {
-      console.warn(`[Recordatorios] Error enviando a ${r.client.phone}:`, e.message);
+      errors++;
+      failedList.push({ name: r.client.name, phone: r.client.phone, error: e.message });
+      console.warn(`[Recordatorios] (${i + 1}/${toSend.length}) ✗ ${r.client.phone}: ${e.message}`);
     }
+
+    if (i < toSend.length - 1) await sleep(DELAY_MS);
   }
 
-  console.log(`[Recordatorios] Listo: ${sent} enviados, ${skipped} omitidos (sin plan con recordatorios).`);
+  console.log(`[Recordatorios] Listo: ${sent} enviados, ${errors} errores, ${skipped} omitidos.`);
+
+  // Guardar resultado en MongoDB para consulta desde el panel
+  await ReminderLog.create({ date: today, sent, errorCount: errors, skipped, failedList });
 }
 
 export function startReminderJob() {
-  // Todos los dias a las 8:00 AM
   cron.schedule('0 8 * * *', () => {
     sendDailyReminders().catch((e) => console.error('[Recordatorios] Error inesperado:', e.message));
   }, { timezone: 'America/Argentina/Buenos_Aires' });

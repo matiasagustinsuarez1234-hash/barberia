@@ -15,8 +15,9 @@ import TabConfig from './admin/TabConfig';
 import TabQR from './admin/TabQR';
 import TabWhatsAppCentral from './admin/TabWhatsAppCentral';
 import TabWhatsApp from './admin/TabWhatsApp';
+import TabRecordatorios from './admin/TabRecordatorios';
 
-const SUPER_TABS = ['Empresas', 'Admins', 'Planes', 'Suscripciones', 'WhatsApp'];
+const SUPER_TABS = ['Empresas', 'Admins', 'Planes', 'Suscripciones', 'WhatsApp', 'Recordatorios'];
 const BASE_SHOP_TABS = ['Turnos', 'Barberos', 'Actividades', 'Horarios', 'Dias Cerrados', 'Clientes', 'Configuracion', 'QR'];
 
 export default function AdminPanel() {
@@ -68,6 +69,7 @@ export default function AdminPanel() {
             {tab === 'Planes' && <TabPlanes />}
             {tab === 'Suscripciones' && <TabSuscripciones />}
             {tab === 'WhatsApp' && <TabWhatsAppCentral />}
+            {tab === 'Recordatorios' && <TabRecordatorios />}
           </>
         ) : (
           <>

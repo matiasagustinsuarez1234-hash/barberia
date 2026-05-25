@@ -22,6 +22,7 @@ import otpRoutes from './routes/otp.routes.js';
 import whatsappRoutes from './routes/whatsapp.routes.js';
 import closedDaysRoutes from './routes/closedDays.routes.js';
 import workedFeriadosRoutes from './routes/workedFeriados.routes.js';
+import reminderLogsRoutes from './routes/reminderLogs.routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const server = express();
@@ -69,6 +70,7 @@ const api = async () => {
   server.use('/api/subscriptions', subscriptionsRoutes);
   server.use('/api/closed-days', closedDaysRoutes);
   server.use('/api/worked-feriados', workedFeriadosRoutes);
+  server.use('/api/reminder-logs', reminderLogsRoutes);
 
   startReminderJob();
 
