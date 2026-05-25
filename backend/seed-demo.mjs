@@ -165,6 +165,14 @@ async function run() {
   }
   console.log(`   ${schedCreated > 0 ? `✚ ${schedCreated} horarios nuevos creados` : '✓ Todos los horarios ya existían'}`);
 
+  // ── Migrar turnos [TEST] confirmados → pendiente ──────────────────────────
+  const migrated = await Reservation.updateMany(
+    { shop: shop._id, notes: '[TEST]', status: 'confirmed' },
+    { $set: { status: 'pending' } }
+  );
+  if (migrated.modifiedCount > 0)
+    console.log(`\n🔄  ${migrated.modifiedCount} turnos confirmados migrados a pendiente`);
+
   // ── Actividades del negocio ───────────────────────────────────────────────
   const activities = await Activity.find({ shop: shop._id });
   if (!activities.length) { console.error('\n❌  Sin actividades en el negocio. Creá al menos una desde el panel.'); await mongoose.disconnect(); return; }
@@ -172,7 +180,7 @@ async function run() {
 
   // ── Generar turnos ────────────────────────────────────────────────────────
   console.log(`\n🎲  Generando turnos para los próximos ${DAYS_AHEAD} días...\n`);
-  const statuses = ['pending', 'pending', 'pending', 'confirmed'];
+  const statuses = ['pending'];
   let created = 0;
   let skippedOverlap = 0;
 

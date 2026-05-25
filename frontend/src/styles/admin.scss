@@ -821,7 +821,7 @@
   // Pasados del día (sin showPast)
   .sg-past { background: #f9f9f9; }
 
-  // Disponible
+  // Disponible  →  verde claro
   .sg-free {
     background: #f0faf4;
     color: #1a7a4a;
@@ -830,16 +830,15 @@
     text-align: center;
   }
 
-  // Turno ocupado — primera fila (info completa)
+  // Turno pendiente  →  naranja claro  (color por defecto de sg-start / sg-cont)
+  // Turno confirmado →  azul claro     (claramente distinto de "Disponible")
+  // Turno cancelado  →  rojo muy tenue
+
   .sg-start {
     padding: 0 8px;
-    background: #fff8f0;
+    background: #fff8f0;               // pendiente: naranja
     border-left: 3px solid #e07b00;
 
-    &.status-confirmed {
-      background: #f0faf4;
-      border-left-color: #1a7a4a;
-    }
     &.status-cancelled {
       background: #fdf2f2;
       border-left-color: #c0392b;
@@ -847,15 +846,10 @@
     }
   }
 
-  // Turno ocupado — filas de continuación (fondo coloreado, vacío)
   .sg-cont {
-    background: #fef3e2;
+    background: #fef3e2;               // pendiente: naranja
     border-left: 3px solid #e07b00;
 
-    &.status-confirmed {
-      background: #e8f5e9;
-      border-left-color: #1a7a4a;
-    }
   }
 
   // Layout horizontal de la celda ocupada
@@ -902,6 +896,15 @@
       line-height: 1;
     }
   }
+
+  // Indicador de turno confirmado
+  .sg-confirmed-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #2563eb;
+    line-height: 1;
+    padding: 0 2px;
+  }
 }
 
 // Leyenda
@@ -927,9 +930,9 @@
       flex-shrink: 0;
     }
 
-    &.free::before   { background: #f0faf4; border: 1px solid #1a7a4a; }
-    &.booked::before { background: #fff8f0; border-left: 3px solid #e07b00; }
-    &.off::before    { background: #f5f5f5; border: 1px solid #ddd; }
+    &.free::before    { background: #f0faf4; border: 1px solid #1a7a4a; }
+    &.pending::before { background: #fff8f0; border-left: 3px solid #e07b00; }
+    &.off::before     { background: #f5f5f5; border: 1px solid #ddd; }
   }
 }
 

@@ -193,7 +193,7 @@ export default function TabTurnos() {
                                 {remindingId === r._id ? '…' : '📲'}
                               </button>
                             )}
-                            <button
+<button
                               type="button"
                               className="btn-small btn-cancel-sm"
                               onClick={() => handleCancelPrompt(r._id)}
@@ -214,7 +214,7 @@ export default function TabTurnos() {
           {/* Leyenda */}
           <div className="sg-legend">
             <span className="sg-legend-item free">Disponible</span>
-            <span className="sg-legend-item booked">Ocupado</span>
+            <span className="sg-legend-item pending">Ocupado</span>
             <span className="sg-legend-item off">Fuera de horario</span>
           </div>
         </div>

@@ -637,6 +637,9 @@ export default function Booking() {
             <div className="section-title">
               Horario
               {isGroup && ` — solo turnos con ${groupCount} lugares consecutivos`}
+              {!isGroup && totalDuration > 0 && (
+                <span className="section-hint"> — duración total: {totalDuration} min</span>
+              )}
             </div>
             <div className="time-grid">
               {validSlots.map((t) => (
@@ -649,6 +652,25 @@ export default function Booking() {
                 </div>
               ))}
             </div>
+
+            {/* Preview del rango horario al seleccionar un slot */}
+            {selectedTime && !isGroup && totalDuration > 0 && (
+              <div className="booking-time-range">
+                <span className="time-range-icon">🕐</span>
+                <span>
+                  Tu turno: <strong>{selectedTime}</strong> hasta <strong>{addMinutes(selectedTime, totalDuration)}</strong>
+                </span>
+                {selectedActivities.length > 1 && (
+                  <span className="time-range-detail">
+                    {selectedActivities.map((a, i) => (
+                      <span key={a._id}>
+                        {i > 0 && ' + '}{a.title} ({a.durationMinutes} min)
+                      </span>
+                    ))}
+                  </span>
+                )}
+              </div>
+            )}
           </>
         )}
         {hasBarber && hasServices && hasDate && validSlots.length === 0 && !msg && (
