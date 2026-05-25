@@ -366,3 +366,70 @@ textarea.input-text { resize: vertical; }
   .shop-address, .shop-phone { margin: 0; font-size: 0.85rem; color: $gray; }
   .btn-confirm { margin-top: 12px; }
 }
+
+/* ── Booking: nuevo flujo ── */
+
+// Hint inline junto al section-title
+.section-hint {
+  font-size: 0.72rem;
+  color: $gray;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: 4px;
+}
+
+// Tag de duración en cada tarjeta de servicio
+.duration-tag {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  font-size: 0.72rem;
+  color: $gray;
+  font-weight: 500;
+}
+
+// Cuando hay precio Y duración, moverlos para no superponerse
+.card-opt .price-tag + .duration-tag,
+.card-opt .duration-tag {
+  bottom: 12px;
+}
+.card-opt .price-tag {
+  top: 14px;
+}
+
+// Barra resumen al pie de la selección de servicios
+.booking-summary-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-top: 10px;
+  font-size: 0.88rem;
+  flex-wrap: wrap;
+
+  .summary-services {
+    color: #333;
+    font-weight: 500;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .summary-total {
+    color: $gray;
+    font-size: 0.85rem;
+    white-space: nowrap;
+
+    strong {
+      color: #111;
+      font-size: 0.95rem;
+    }
+  }
+}

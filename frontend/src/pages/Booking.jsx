@@ -34,12 +34,6 @@ function calcFinalPrice(basePrice, barber) {
   return basePrice + barber.surchargeValue;
 }
 
-function surchargeLabel(barber) {
-  if (!barber || barber.surchargeType === 'none' || !barber.surchargeValue) return null;
-  if (barber.surchargeType === 'percent') return `+${barber.surchargeValue}%`;
-  return `+$${Number(barber.surchargeValue).toLocaleString('es-AR')}`;
-}
-
 function addMinutes(timeStr, minutes) {
   const [h, m] = timeStr.split(':').map(Number);
   const total = h * 60 + m + minutes;
@@ -48,7 +42,7 @@ function addMinutes(timeStr, minutes) {
   return `${nh}:${nm === 0 ? '00' : String(nm).padStart(2, '0')}`;
 }
 
-// Paso 1: elegir tipo (individual/grupo), servicio, barbero, fecha y hora
+// Paso 1: elegir barbero → servicio(s) → fecha → hora
 // Paso 2: ingresar nombre, celular y mail → backend verifica si ya existe
 //   - Si existe: reserva directa (sin OTP)
 //   - Si es nuevo: envía OTP por WhatsApp → paso 3
@@ -66,8 +60,12 @@ export default function Booking() {
 
   const [activities, setActivities] = useState([]);
   const [barbers, setBarbers] = useState([]);
-  const [selectedActivity, setSelectedActivity] = useState(null);
+
+  // Barbero seleccionado
   const [selectedBarber, setSelectedBarber] = useState(null);
+
+  // Múltiples servicios seleccionados (array)
+  const [selectedActivities, setSelectedActivities] = useState([]);
 
   const [dates] = useState(() => generateDates());
   const [date, setDate] = useState('');
@@ -128,22 +126,63 @@ export default function Booking() {
       setActivities(actResp.data.activities);
       setBarbers(barResp.data.barbers);
       setClosedDates(new Set(closedResp.data.closedDates || []));
-      if (actResp.data.activities.length > 0) setSelectedActivity(actResp.data.activities[0]);
-      if (barResp.data.barbers.length > 0) setSelectedBarber(barResp.data.barbers[0]);
+      // Sin auto-selección: el cliente elige primero el barbero
     }).catch(() => setMsg('Error cargando datos'));
   }, [shopId]);
 
+  // Duración total de las actividades seleccionadas
+  const totalDuration = selectedActivities.reduce((sum, a) => sum + (a.durationMinutes || 0), 0);
+
+  // Precio total (con recargo del barbero ya incluido en el total)
+  const totalPrice = (() => {
+    if (!selectedActivities.length) return 0;
+    const baseTotal = selectedActivities.reduce((sum, a) => sum + (a.price || 0), 0);
+    return calcFinalPrice(baseTotal, selectedBarber);
+  })();
+
+  // Cargar slots cuando cambian barbero, fecha o actividades
   useEffect(() => {
-    if (!selectedBarber || !date || !selectedActivity) return;
+    if (!selectedBarber || !date || selectedActivities.length === 0) return;
     setMsg('');
     setSelectedTime('');
-    api.get(`/public/slots?barber=${selectedBarber._id}&date=${date}&activity=${selectedActivity._id}`)
+    // Duración total acumulada de todos los servicios seleccionados
+    const dur = selectedActivities.reduce((sum, a) => sum + (a.durationMinutes || 0), 0);
+    const primaryActivity = selectedActivities[0];
+    api.get(`/public/slots?barber=${selectedBarber._id}&date=${date}&activity=${primaryActivity._id}&duration=${dur}`)
       .then((r) => {
         setSlots(r.data.slots);
         setSlotMinutes(r.data.slotMinutes || 45);
       })
       .catch(() => setMsg('Error cargando horarios'));
-  }, [selectedBarber, date, selectedActivity]);
+  }, [selectedBarber, date, selectedActivities]);
+
+  // Cuando el usuario cambia de barbero, limpiar selección de servicios y fecha
+  const handleSelectBarber = (b) => {
+    setSelectedBarber(b);
+    setSelectedActivities([]);
+    setDate('');
+    setSelectedTime('');
+    setSlots([]);
+    setMsg('');
+  };
+
+  // Toggle de actividad: añadir o quitar del array
+  const toggleActivity = (a) => {
+    setSelectedActivities((prev) => {
+      const idx = prev.findIndex((x) => x._id === a._id);
+      if (idx >= 0) {
+        // Quitar
+        const next = prev.filter((x) => x._id !== a._id);
+        return next;
+      }
+      // Agregar
+      return [...prev, a];
+    });
+    // Si se cambia la selección de servicios, resetear fecha/hora
+    setDate('');
+    setSelectedTime('');
+    setSlots([]);
+  };
 
   // Sincronizar array de integrantes con groupCount
   useEffect(() => {
@@ -191,9 +230,9 @@ export default function Booking() {
 
   // --- Paso 1 → Paso 2 ---
   const goToClientStep = () => {
-    if (!selectedActivity || !selectedBarber || !date || !selectedTime) {
-      return setMsg('Completa todos los campos antes de continuar');
-    }
+    if (!selectedBarber) return setMsg('Selecciona un profesional');
+    if (selectedActivities.length === 0) return setMsg('Selecciona al menos un servicio');
+    if (!date || !selectedTime) return setMsg('Selecciona fecha y horario');
     if (isGroup && !getGroupSlots(selectedTime)) {
       return setMsg('No hay suficientes horarios consecutivos disponibles para el grupo');
     }
@@ -250,11 +289,13 @@ export default function Booking() {
 
   const _doBook = async ({ isNew, code, phone: explicitPhone }) => {
     const groupSlots = getGroupSlots(selectedTime);
+    const [primaryActivity, ...restActivities] = selectedActivities;
     const payload = {
       phone: explicitPhone ?? clientPhone,
       shopSlug,
       barberId: selectedBarber._id,
-      activityId: selectedActivity._id,
+      activityId: primaryActivity._id,
+      additionalActivityIds: restActivities.map((a) => a._id),
       date,
       time: selectedTime,
       notes,
@@ -320,6 +361,8 @@ export default function Booking() {
   // --- Reset para reservar otro turno ---
   const resetForm = () => {
     setStep(1);
+    setSelectedBarber(null);
+    setSelectedActivities([]);
     setDate('');
     setSelectedTime('');
     setSlots([]);
@@ -456,6 +499,10 @@ export default function Booking() {
 
   // Paso 1: seleccion de turno
   if (step === 1) {
+    const hasBarber = !!selectedBarber;
+    const hasServices = selectedActivities.length > 0;
+    const hasDate = !!date;
+
     return (
       <div className="app-card">
         {shopLogo && <img src={shopLogo} alt={shopName} className="shop-logo" />}
@@ -502,67 +549,90 @@ export default function Booking() {
           </div>
         )}
 
-        <div className="section-title">Servicio</div>
-        <div className="option-grid">
-          {activities.map((a) => (
-            <div
-              key={a._id}
-              className={`card-opt ${selectedActivity?._id === a._id ? 'selected' : ''}`}
-              onClick={() => setSelectedActivity(a)}
-            >
-              <strong>{a.title}</strong>
-              {a.description && <><br /><small>{a.description}</small></>}
-              <span className="price-tag">${Number(a.price).toLocaleString('es-AR')}</span>
-            </div>
-          ))}
-        </div>
-
-        <div className="section-title">Barbero</div>
+        {/* ── 1. Barbero ── */}
+        <div className="section-title">Profesional</div>
         <div className="option-grid">
           {barbers.map((b) => (
             <div
               key={b._id}
               className={`card-opt barber-item ${selectedBarber?._id === b._id ? 'selected' : ''}`}
-              onClick={() => setSelectedBarber(b)}
+              onClick={() => handleSelectBarber(b)}
             >
               <strong>{b.name}</strong>
               {b.specialties?.length > 0 && <><br /><small>{b.specialties.join(', ')}</small></>}
-              {surchargeLabel(b) && <span className="price-tag">{surchargeLabel(b)}</span>}
             </div>
           ))}
         </div>
 
-        {/* Barra horizontal de fechas */}
-        {selectedActivity && selectedBarber && surchargeLabel(selectedBarber) && (
-          <p className="surcharge-note">
-            Precio con {selectedBarber.name}: <strong>${calcFinalPrice(selectedActivity.price, selectedBarber).toLocaleString('es-AR')}</strong>
-            <small> ({surchargeLabel(selectedBarber)} sobre el precio base)</small>
-          </p>
+        {/* ── 2. Servicios (solo después de elegir barbero) ── */}
+        {hasBarber && (
+          <>
+            <div className="section-title">
+              Servicio
+              <span className="section-hint"> — podés elegir más de uno</span>
+            </div>
+            <div className="option-grid">
+              {activities.map((a) => {
+                const isSelected = selectedActivities.some((x) => x._id === a._id);
+                const price = calcFinalPrice(a.price, selectedBarber);
+                return (
+                  <div
+                    key={a._id}
+                    className={`card-opt ${isSelected ? 'selected' : ''}`}
+                    onClick={() => toggleActivity(a)}
+                  >
+                    <strong>{a.title}</strong>
+                    {a.description && <><br /><small>{a.description}</small></>}
+                    <span className="price-tag">${Number(price).toLocaleString('es-AR')}</span>
+                    {a.durationMinutes && <span className="duration-tag">{a.durationMinutes} min</span>}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Resumen de selección */}
+            {hasServices && (
+              <div className="booking-summary-bar">
+                <span className="summary-services">
+                  {selectedActivities.map((a) => a.title).join(' + ')}
+                </span>
+                <span className="summary-total">
+                  Total: <strong>${totalPrice.toLocaleString('es-AR')}</strong>
+                  {totalDuration > 0 && <> · {totalDuration} min</>}
+                </span>
+              </div>
+            )}
+          </>
         )}
 
-        <div className="section-title">Fecha</div>
-        <div className="date-bar" ref={dateBarRef}>
-          {dates.map((d, i) => {
-            const key = toDateKey(d);
-            const isSelected = key === date;
-            const isClosed = closedDates.has(key);
-            return (
-              <div
-                key={i}
-                className={`date-item${isSelected ? ' selected' : ''}${isClosed ? ' disabled' : ''}`}
-                onClick={() => handleDateSelect(d)}
-                title={isClosed ? 'Cerrado' : undefined}
-              >
-                <span className="date-dow">{DAYS_ES[d.getDay()]}</span>
-                <span className="date-num">{d.getDate()}</span>
-                <span className="date-month">{MONTHS_ES[d.getMonth()]}</span>
-              </div>
-            );
-          })}
-        </div>
+        {/* ── 3. Fecha (solo después de barbero + servicios) ── */}
+        {hasBarber && hasServices && (
+          <>
+            <div className="section-title">Fecha</div>
+            <div className="date-bar" ref={dateBarRef}>
+              {dates.map((d, i) => {
+                const key = toDateKey(d);
+                const isSelected = key === date;
+                const isClosed = closedDates.has(key);
+                return (
+                  <div
+                    key={i}
+                    className={`date-item${isSelected ? ' selected' : ''}${isClosed ? ' disabled' : ''}`}
+                    onClick={() => handleDateSelect(d)}
+                    title={isClosed ? 'Cerrado' : undefined}
+                  >
+                    <span className="date-dow">{DAYS_ES[d.getDay()]}</span>
+                    <span className="date-num">{d.getDate()}</span>
+                    <span className="date-month">{MONTHS_ES[d.getMonth()]}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
 
-        {/* Horarios disponibles */}
-        {date && validSlots.length > 0 && (
+        {/* ── 4. Horarios (solo después de fecha) ── */}
+        {hasBarber && hasServices && hasDate && validSlots.length > 0 && (
           <>
             <div className="section-title">
               Horario
@@ -581,7 +651,7 @@ export default function Booking() {
             </div>
           </>
         )}
-        {date && validSlots.length === 0 && !msg && (
+        {hasBarber && hasServices && hasDate && validSlots.length === 0 && !msg && (
           <p className="empty-msg">
             {isGroup
               ? `Sin ${groupCount} horarios consecutivos disponibles para este dia.`
@@ -602,14 +672,19 @@ export default function Booking() {
           </div>
         )}
 
-        <div className="section-title">Notas (opcional)</div>
-        <textarea
-          className="input-text"
-          placeholder="Alguna aclaracion?"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          rows={2}
-        />
+        {/* Notas solo cuando tiene todo elegido */}
+        {hasBarber && hasServices && hasDate && (
+          <>
+            <div className="section-title">Notas (opcional)</div>
+            <textarea
+              className="input-text"
+              placeholder="Alguna aclaracion?"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+            />
+          </>
+        )}
 
         {msg && <p className="error-text">{msg}</p>}
         <button className="btn-confirm" type="button" onClick={goToClientStep}>

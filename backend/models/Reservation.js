@@ -4,6 +4,7 @@ const ReservationSchema = new mongoose.Schema({
   shop: { type: mongoose.Schema.Types.ObjectId, ref: 'Barbershop', required: true },
   barber: { type: mongoose.Schema.Types.ObjectId, ref: 'Barber', required: true },
   activity: { type: mongoose.Schema.Types.ObjectId, ref: 'Activity', required: true },
+  additionalActivities: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Activity' }],
   client: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', required: true },
   date: { type: String, required: true },
   time: { type: String, required: true },

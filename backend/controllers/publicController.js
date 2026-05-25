@@ -82,7 +82,7 @@ export const getPublicFeriados = (req, res) => {
 
 export const getAvailableSlots = async (req, res) => {
   try {
-    const { barber, date, activity: activityId } = req.query;
+    const { barber, date, activity: activityId, duration: durationOverride } = req.query;
     if (!barber || !date || !activityId) {
       return res.status(400).json({ ok: false, msg: 'Faltan parametros barber, date y activity' });
     }
@@ -114,11 +114,14 @@ export const getAvailableSlots = async (req, res) => {
 
     const takenRanges = taken.map((r) => {
       const start = timeToMinutes(r.time);
-      return { start, end: start + (r.activity?.durationMinutes ?? schedule.slotMinutes) };
+      // Usar endTime si está disponible (más preciso con servicios múltiples)
+      const end = r.endTime ? timeToMinutes(r.endTime) : start + (r.activity?.durationMinutes ?? schedule.slotMinutes);
+      return { start, end };
     });
 
     const scheduleEnd = timeToMinutes(schedule.endTime);
-    const actDuration = activity.durationMinutes;
+    // durationOverride permite al cliente pasar la duración total de múltiples servicios
+    const actDuration = durationOverride ? parseInt(durationOverride, 10) : activity.durationMinutes;
 
     const available = slots.filter((slot) => {
       const start = timeToMinutes(slot);

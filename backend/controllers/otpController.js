@@ -120,7 +120,7 @@ export const sendOtp = async (req, res) => {
 // Para clientes NUEVOS: valida OTP + crea cliente + crea turno
 export const verifyAndBook = async (req, res) => {
   try {
-    const { phone, code, shopSlug, barberId, activityId, date, time, notes, additionalMembers } = req.body;
+    const { phone, code, shopSlug, barberId, activityId, additionalActivityIds, date, time, notes, additionalMembers } = req.body;
 
     if (!phone || !code || !shopSlug || !barberId || !activityId || !date || !time) {
       return res.status(400).json({ ok: false, msg: 'Faltan datos para confirmar el turno' });
@@ -142,7 +142,7 @@ export const verifyAndBook = async (req, res) => {
       client = await Client.create({ name: otp.name, phone, email: otp.email || '' });
     }
 
-    return await _createReservation({ client, shopSlug, barberId, activityId, date, time, notes, additionalMembers, res });
+    return await _createReservation({ client, shopSlug, barberId, activityId, additionalActivityIds, date, time, notes, additionalMembers, res });
   } catch (error) {
     console.error('verifyAndBook error:', error);
     res.status(500).json({ ok: false, msg: 'Error confirmando el turno' });
@@ -152,7 +152,7 @@ export const verifyAndBook = async (req, res) => {
 // Para clientes EXISTENTES: crea el turno directamente sin OTP
 export const bookExisting = async (req, res) => {
   try {
-    const { phone, shopSlug, barberId, activityId, date, time, notes, additionalMembers } = req.body;
+    const { phone, shopSlug, barberId, activityId, additionalActivityIds, date, time, notes, additionalMembers } = req.body;
 
     if (!phone || !shopSlug || !barberId || !activityId || !date || !time) {
       return res.status(400).json({ ok: false, msg: 'Faltan datos para reservar' });
@@ -163,7 +163,7 @@ export const bookExisting = async (req, res) => {
       return res.status(400).json({ ok: false, msg: 'Cliente no encontrado' });
     }
 
-    return await _createReservation({ client, shopSlug, barberId, activityId, date, time, notes, additionalMembers, res });
+    return await _createReservation({ client, shopSlug, barberId, activityId, additionalActivityIds, date, time, notes, additionalMembers, res });
   } catch (error) {
     console.error('bookExisting error:', error);
     res.status(500).json({ ok: false, msg: 'Error creando el turno' });
@@ -237,7 +237,7 @@ function minutesToTime(minutes) {
   return `${h}:${String(m).padStart(2, '0')}`;
 }
 
-async function _createReservation({ client, shopSlug, barberId, activityId, date, time, notes, additionalMembers, res }) {
+async function _createReservation({ client, shopSlug, barberId, activityId, additionalActivityIds, date, time, notes, additionalMembers, res }) {
   const [barber, activity, shop] = await Promise.all([
     Barber.findById(barberId),
     Activity.findById(activityId),
@@ -248,6 +248,15 @@ async function _createReservation({ client, shopSlug, barberId, activityId, date
     return res.status(400).json({ ok: false, msg: 'Datos de reserva invalidos' });
   }
 
+  // Actividades adicionales (servicios extra)
+  let extraActivities = [];
+  if (additionalActivityIds?.length) {
+    extraActivities = await Activity.find({ _id: { $in: additionalActivityIds } });
+  }
+
+  // Duración total = suma de todas las actividades seleccionadas
+  const totalDuration = activity.durationMinutes + extraActivities.reduce((sum, a) => sum + (a.durationMinutes || 0), 0);
+
   const existingReservations = await Reservation.find({
     barber: barberId,
     date,
@@ -256,14 +265,16 @@ async function _createReservation({ client, shopSlug, barberId, activityId, date
 
   const takenRanges = existingReservations.map((r) => {
     const start = timeToMinutes(r.time);
-    return { start, end: start + (r.activity?.durationMinutes ?? 30) };
+    // Usar endTime si está disponible (más preciso con servicios múltiples)
+    const end = r.endTime ? timeToMinutes(r.endTime) : start + (r.activity?.durationMinutes ?? 30);
+    return { start, end };
   });
 
   const hasOverlap = (startMin, endMin) =>
     takenRanges.some((r) => startMin < r.end && endMin > r.start);
 
   const newStart = timeToMinutes(time);
-  const newEnd = newStart + activity.durationMinutes;
+  const newEnd = newStart + totalDuration;
 
   if (hasOverlap(newStart, newEnd)) {
     return res.status(409).json({ ok: false, msg: 'Ese horario ya fue tomado. Elige otro.' });
@@ -279,7 +290,7 @@ async function _createReservation({ client, shopSlug, barberId, activityId, date
   if (additionalMembers?.length) {
     for (const member of additionalMembers) {
       const mStart = timeToMinutes(member.time);
-      const mEnd = mStart + activity.durationMinutes;
+      const mEnd = mStart + totalDuration;
       if (hasOverlap(mStart, mEnd)) {
         return res.status(409).json({ ok: false, msg: `El horario ${member.time} ya fue tomado. Intenta de nuevo.` });
       }
@@ -292,6 +303,7 @@ async function _createReservation({ client, shopSlug, barberId, activityId, date
     shop: shop._id,
     barber: barberId,
     activity: activityId,
+    additionalActivities: additionalActivityIds || [],
     client: client._id,
     date,
     time,
@@ -309,9 +321,11 @@ async function _createReservation({ client, shopSlug, barberId, activityId, date
         shop: shop._id,
         barber: barberId,
         activity: activityId,
+        additionalActivities: additionalActivityIds || [],
         client: client._id,
         date,
         time: member.time,
+        endTime: minutesToTime(timeToMinutes(member.time) + totalDuration),
         notes: memberNotes,
         status: 'pending',
       });
@@ -328,14 +342,26 @@ async function _createReservation({ client, shopSlug, barberId, activityId, date
   const allReservations = [reservation, ...extraReservations];
   const populated = await Promise.all(allReservations.map((r) => r.populate(populateFields)));
 
-  // Mensaje de confirmacion por WhatsApp
-  let finalPrice = activity.price;
-  if (barber.surchargeType === 'percent' && barber.surchargeValue) {
-    finalPrice = Math.round(activity.price * (1 + barber.surchargeValue / 100));
-  } else if (barber.surchargeType === 'fixed' && barber.surchargeValue) {
-    finalPrice = activity.price + barber.surchargeValue;
-  }
-  const priceLabel = `$${finalPrice.toLocaleString('es-AR')}`;
+  // Calcular precio con recargo del barbero
+  const calcPrice = (basePrice) => {
+    if (barber.surchargeType === 'percent' && barber.surchargeValue)
+      return Math.round(basePrice * (1 + barber.surchargeValue / 100));
+    if (barber.surchargeType === 'fixed' && barber.surchargeValue)
+      return basePrice + barber.surchargeValue;
+    return basePrice;
+  };
+
+  // Precio total: actividad principal + extras (recargo aplicado al total)
+  const allActivities = [activity, ...extraActivities];
+  const baseTotal = allActivities.reduce((sum, a) => sum + (a.price || 0), 0);
+  const totalPrice = calcPrice(baseTotal);
+  const priceLabel = `$${totalPrice.toLocaleString('es-AR')}`;
+
+  // Líneas de servicios para el mensaje WA
+  const serviceLines = allActivities.map((a) => `• ${a.title}`).join('\n');
+  const serviceLabel = allActivities.length === 1
+    ? `Servicio: ${activity.title}`
+    : `Servicios:\n${serviceLines}`;
 
   const bookingLink = shop.slug ? `\n\nPara ver o cancelar tu turno:\n${process.env.PUBLIC_URL}/${shop.slug}/turnos` : '';
   let confirmMsg = `*TURNO RESERVADO*\n\nHola ${client.name}!\nTu turno en *${shop.name}* fue registrado.\n\n`;
@@ -344,10 +370,10 @@ async function _createReservation({ client, shopSlug, barberId, activityId, date
     confirmMsg += `*Reservas del grupo:*\n`;
     confirmMsg += `• ${client.name}: ${time}\n`;
     additionalMembers.forEach((m) => { confirmMsg += `• ${m.name}: ${m.time}\n`; });
-    confirmMsg += `\nServicio: ${activity.title}\nBarbero: ${barber.name}\nFecha: ${date}\nPrecio: ${priceLabel}\n\nTe esperamos!`;
+    confirmMsg += `\n${serviceLabel}\nBarbero: ${barber.name}\nFecha: ${date}\nPrecio: ${priceLabel}\n\nTe esperamos!`;
   } else {
     confirmMsg +=
-      `Servicio: ${activity.title}\n` +
+      `${serviceLabel}\n` +
       `Barbero: ${barber.name}\n` +
       `Fecha: ${date}\n` +
       `Hora: ${time}\n` +
@@ -363,7 +389,7 @@ async function _createReservation({ client, shopSlug, barberId, activityId, date
     const adminMsg =
       `*Nuevo turno reservado*\n\n` +
       `Cliente: ${client.name} (${client.phone})\n` +
-      `Servicio: ${activity.title}\n` +
+      `${serviceLabel}\n` +
       `Barbero: ${barber.name}\n` +
       `Fecha: ${date}\n` +
       `Hora: ${time}`;
@@ -374,7 +400,7 @@ async function _createReservation({ client, shopSlug, barberId, activityId, date
     const barberMsg =
       `*Nuevo turno*\n\n` +
       `Cliente: ${client.name} (${client.phone})\n` +
-      `Servicio: ${activity.title}\n` +
+      `${serviceLabel}\n` +
       `Fecha: ${date}\n` +
       `Hora: ${time}`;
     waSend(shop._id.toString(), barber.whatsapp, barberMsg).catch((e) => console.warn('WA notificacion barbero error:', e));

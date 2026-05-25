@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import api from '../../utils/api';
 
 const STATUS_LABEL = { pending: 'Pendiente', confirmed: 'Confirmado', cancelled: 'Cancelado' };
-const STATUS_CLASS = { pending: 'badge-pending', confirmed: 'badge-confirmed', cancelled: 'badge-cancelled' };
+const STATUS_CLASS  = { pending: 'badge-pending', confirmed: 'badge-confirmed', cancelled: 'badge-cancelled' };
 
 function addDays(dateStr, days) {
   const d = new Date(dateStr + 'T00:00:00');
@@ -11,12 +11,21 @@ function addDays(dateStr, days) {
 }
 
 function formatDateLabel(dateStr) {
-  const today = new Date().toISOString().split('T')[0];
+  const today    = new Date().toISOString().split('T')[0];
   const tomorrow = addDays(today, 1);
-  if (dateStr === today) return 'Hoy';
+  if (dateStr === today)    return 'Hoy';
   if (dateStr === tomorrow) return 'Mañana';
   const d = new Date(dateStr + 'T00:00:00');
   return d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+function timeToMin(t) {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function minToTime(m) {
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 }
 
 function isPastTime(time) {
@@ -27,21 +36,23 @@ function isPastTime(time) {
 
 export default function TabTurnos() {
   const [reservations, setReservations] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
-  const [barberFilter, setBarberFilter] = useState('all');
-  const [showPastToday, setShowPastToday] = useState(false);
+  const [schedules, setSchedules]       = useState([]);
+  const [loading, setLoading]           = useState(true);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [cancelingId, setCancelingId] = useState(null);
+  const [showPast, setShowPast]         = useState(false);
+  const [cancelingId, setCancelingId]   = useState(null);
   const [cancelReason, setCancelReason] = useState('');
-  const [remindingId, setRemindingId] = useState(null);
+  const [remindingId, setRemindingId]   = useState(null);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today   = new Date().toISOString().split('T')[0];
   const isToday = selectedDate === today;
 
   useEffect(() => {
-    api.get('/reservations')
-      .then((r) => setReservations(r.data.reservations))
+    Promise.all([api.get('/reservations'), api.get('/schedules')])
+      .then(([rRes, sRes]) => {
+        setReservations(rRes.data.reservations || []);
+        setSchedules(sRes.data.schedules || []);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -53,7 +64,7 @@ export default function TabTurnos() {
 
   const handleRemind = async (id) => {
     setRemindingId(id);
-    try { await api.post(`/reservations/${id}/remind`); } catch { /* ignore */ }
+    try { await api.post(`/reservations/${id}/remind`); } catch { /* */ }
     setRemindingId(null);
   };
 
@@ -65,35 +76,50 @@ export default function TabTurnos() {
 
   const navigate = (delta) => {
     const next = addDays(selectedDate, delta);
-    if (next < today) return; // no retroceder antes de hoy
+    if (next < today) return;
     setSelectedDate(next);
-    setBarberFilter('all');
     setCancelingId(null);
     setCancelReason('');
   };
 
-  // Barberos únicos en todos los turnos (para mostrar el filtro siempre que haya más de uno)
-  const allBarbers = [...new Map(
-    reservations
-      .map((r) => [r.barber?._id, r.barber])
-      .filter(([id]) => id)
-  ).values()];
+  // ── Grilla ──────────────────────────────────────────────
+  const dayOfWeek      = new Date(selectedDate + 'T00:00:00').getDay();
+  const todaySchedules = schedules.filter((s) => s.weekday === dayOfWeek && s.active !== false);
 
-  // Conteo de turnos por barbero en el día seleccionado
-  const countByBarber = reservations.reduce((acc, r) => {
-    if (r.date === selectedDate && r.barber?._id) {
-      acc[r.barber._id] = (acc[r.barber._id] || 0) + 1;
+  // Slots del día (cada 30 min, union de todos los barberos)
+  let slots = [];
+  if (todaySchedules.length > 0) {
+    const minStart = Math.min(...todaySchedules.map((s) => timeToMin(s.startTime)));
+    const maxEnd   = Math.max(...todaySchedules.map((s) => timeToMin(s.endTime)));
+    for (let t = minStart; t < maxEnd; t += 30) slots.push(minToTime(t));
+  }
+
+  // Reservas del día por barbero (excluye cancelados)
+  const resByBarber = {};
+  reservations
+    .filter((r) => r.date === selectedDate && r.status !== 'cancelled')
+    .forEach((r) => {
+      const bid = r.barber?._id;
+      if (!bid) return;
+      if (!resByBarber[bid]) resByBarber[bid] = [];
+      resByBarber[bid].push(r);
+    });
+
+  const getCell = (barberId, slotTime, sched) => {
+    const slotMin    = timeToMin(slotTime);
+    const schedStart = timeToMin(sched.startTime);
+    const schedEnd   = timeToMin(sched.endTime);
+    if (slotMin < schedStart || slotMin >= schedEnd) return { type: 'off' };
+    if (isToday && !showPast && isPastTime(slotTime))  return { type: 'past' };
+    for (const r of (resByBarber[barberId] || [])) {
+      const rStart = timeToMin(r.time);
+      const rEnd   = r.endTime ? timeToMin(r.endTime) : rStart + (sched.slotMinutes || 45);
+      if (slotMin >= rStart && slotMin < rEnd) {
+        return { type: slotMin === rStart ? 'start' : 'cont', r };
+      }
     }
-    return acc;
-  }, {});
-
-  const visible = reservations.filter((r) => {
-    if (r.date !== selectedDate) return false;
-    if (isToday && !showPastToday && isPastTime(r.time)) return false;
-    if (filter !== 'all' && r.status !== filter) return false;
-    if (barberFilter !== 'all' && r.barber?._id !== barberFilter) return false;
-    return true;
-  });
+    return { type: 'free' };
+  };
 
   if (loading) return <p>Cargando...</p>;
 
@@ -101,133 +127,101 @@ export default function TabTurnos() {
     <div>
       {/* Navegador de días */}
       <div className="date-navigator">
-        <button
-          type="button"
-          className="date-nav-btn"
-          onClick={() => navigate(-1)}
-          disabled={isToday}
-          title="Día anterior"
-        >
-          ‹
-        </button>
+        <button type="button" className="date-nav-btn" onClick={() => navigate(-1)} disabled={isToday} title="Día anterior">‹</button>
         <div className="date-nav-label">
           <span className="date-nav-main">{formatDateLabel(selectedDate)}</span>
           {!isToday && <span className="date-nav-sub">{selectedDate}</span>}
         </div>
-        <button
-          type="button"
-          className="date-nav-btn"
-          onClick={() => navigate(1)}
-          title="Día siguiente"
-        >
-          ›
-        </button>
+        <button type="button" className="date-nav-btn" onClick={() => navigate(1)} title="Día siguiente">›</button>
         {!isToday && (
-          <button
-            type="button"
-            className="date-nav-today"
-            onClick={() => { setSelectedDate(today); setBarberFilter('all'); }}
-          >
-            Hoy
-          </button>
+          <button type="button" className="date-nav-today" onClick={() => { setSelectedDate(today); }}>Hoy</button>
         )}
       </div>
-
-      {/* Filtros de estado */}
-      <div className="filter-bar">
-        {['all', 'pending', 'confirmed', 'cancelled'].map((f) => (
-          <button key={f} type="button" className={`filter-btn ${filter === f ? 'active' : ''}`} onClick={() => setFilter(f)}>
-            {f === 'all' ? 'Todos' : STATUS_LABEL[f]}
-          </button>
-        ))}
-      </div>
-
-      {/* Filtro por barbero (aparece siempre que haya más de uno en el sistema) */}
-      {allBarbers.length > 1 && (
-        <div className="filter-bar barber-filter-bar">
-          <button
-            type="button"
-            className={`filter-btn ${barberFilter === 'all' ? 'active' : ''}`}
-            onClick={() => setBarberFilter('all')}
-          >
-            Todos
-          </button>
-          {allBarbers.map((b) => {
-            const count = countByBarber[b._id] || 0;
-            return (
-              <button
-                key={b._id}
-                type="button"
-                className={`filter-btn ${barberFilter === b._id ? 'active' : ''}`}
-                onClick={() => setBarberFilter(b._id)}
-              >
-                {b.name}
-                {count > 0 && <span className="barber-count">{count}</span>}
-              </button>
-            );
-          })}
-        </div>
-      )}
 
       {/* Toggle pasados (solo hoy) */}
       {isToday && (
         <label className="show-past-toggle">
-          <input
-            type="checkbox"
-            checked={showPastToday}
-            onChange={(e) => setShowPastToday(e.target.checked)}
-          />
-          <span>Mostrar turnos ya pasados</span>
+          <input type="checkbox" checked={showPast} onChange={(e) => setShowPast(e.target.checked)} />
+          <span>Mostrar horarios ya pasados</span>
         </label>
       )}
 
-      {visible.length === 0 ? (
-        <p className="empty-msg">Sin turnos para este día.</p>
+      {/* ── Grilla ── */}
+      {todaySchedules.length === 0 ? (
+        <p className="empty-msg">No hay horarios configurados para este día.</p>
       ) : (
-        <div className="reservations-list">
-          {visible.map((r) => (
-            <div key={r._id} className={`reservation-item ${r.status}`}>
-              <div className="reservation-header">
-                <span className="reservation-date">{r.time}</span>
-                <span className={`badge ${STATUS_CLASS[r.status]}`}>{STATUS_LABEL[r.status]}</span>
-              </div>
-              <div className="reservation-body">
-                <strong>{r.client?.name}</strong>
-                {r.client?.phone && <span className="client-phone">📞 {r.client.phone}</span>}
-                &mdash; {r.activity?.title} con {r.barber?.name}
-              </div>
-              {r.cancellationReason && (
-                <div className="cancellation-reason">Motivo: {r.cancellationReason}</div>
-              )}
-              {r.status !== 'cancelled' && (
-                <div className="reservation-actions">
-                  {r.status === 'pending' && (
-                    <button type="button" className="btn-small btn-confirm-sm" onClick={() => changeStatus(r._id, 'confirmed')}>Confirmar</button>
-                  )}
-                  {r.status === 'pending' && (
-                    <button type="button" className="btn-small" onClick={() => handleRemind(r._id)} disabled={remindingId === r._id}>
-                      {remindingId === r._id ? 'Enviando...' : 'Recordar'}
-                    </button>
-                  )}
-                  {cancelingId === r._id ? (
-                    <div className="cancel-reason-form">
-                      <input
-                        type="text"
-                        placeholder="Motivo (opcional)"
-                        value={cancelReason}
-                        onChange={(e) => setCancelReason(e.target.value)}
-                        autoFocus
-                      />
-                      <button type="button" className="btn-small btn-cancel-sm" onClick={() => handleCancel(r._id)}>Confirmar cancelacion</button>
-                      <button type="button" className="btn-small" onClick={() => { setCancelingId(null); setCancelReason(''); }}>Volver</button>
-                    </div>
-                  ) : (
-                    <button type="button" className="btn-small btn-cancel-sm" onClick={() => setCancelingId(r._id)}>Cancelar</button>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+        <div className="schedule-grid-wrap">
+          <table className="schedule-grid">
+            <thead>
+              <tr>
+                <th className="th-time">Horario</th>
+                {todaySchedules.map((s) => (
+                  <th key={s._id}>{s.barber?.name || '—'}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {slots.map((slot) => (
+                <tr key={slot}>
+                  <td className="td-time">{slot}</td>
+                  {todaySchedules.map((s) => {
+                    const cell = getCell(s.barber?._id, slot, s);
+
+                    if (cell.type === 'off')  return <td key={s._id} className="sg-off">—</td>;
+                    if (cell.type === 'past') return <td key={s._id} className="sg-past">·</td>;
+                    if (cell.type === 'free') return <td key={s._id} className="sg-free">Disponible</td>;
+
+                    if (cell.type === 'start') {
+                      const r = cell.r;
+                      return (
+                        <td key={s._id} className={`sg-booked sg-start status-${r.status}`}>
+                          <span className="sg-client">{r.client?.name}</span>
+                          <span className="sg-activity">{r.activity?.title}</span>
+                          {r.client?.phone && <span className="sg-phone">📞 {r.client.phone}</span>}
+                          <div className="sg-actions">
+                            {r.status === 'pending' && (
+                              <button type="button" className="btn-small btn-confirm-sm" onClick={() => changeStatus(r._id, 'confirmed')}>✓</button>
+                            )}
+                            {r.status === 'pending' && (
+                              <button type="button" className="btn-small" onClick={() => handleRemind(r._id)} disabled={remindingId === r._id} title="Enviar recordatorio">
+                                {remindingId === r._id ? '...' : '📲'}
+                              </button>
+                            )}
+                            {cancelingId === r._id ? (
+                              <div className="cancel-reason-form">
+                                <input
+                                  type="text"
+                                  placeholder="Motivo (opcional)"
+                                  value={cancelReason}
+                                  onChange={(e) => setCancelReason(e.target.value)}
+                                  autoFocus
+                                />
+                                <button type="button" className="btn-small btn-cancel-sm" onClick={() => handleCancel(r._id)}>Confirmar</button>
+                                <button type="button" className="btn-small" onClick={() => { setCancelingId(null); setCancelReason(''); }}>×</button>
+                              </div>
+                            ) : (
+                              <button type="button" className="btn-small btn-cancel-sm" onClick={() => setCancelingId(r._id)}>✕</button>
+                            )}
+                          </div>
+                          <span className={`sg-badge badge ${STATUS_CLASS[r.status]}`}>{STATUS_LABEL[r.status]}</span>
+                        </td>
+                      );
+                    }
+
+                    // cont
+                    return <td key={s._id} className={`sg-booked sg-cont status-${cell.r.status}`}></td>;
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Leyenda */}
+          <div className="sg-legend">
+            <span className="sg-legend-item free">Disponible</span>
+            <span className="sg-legend-item booked">Ocupado</span>
+            <span className="sg-legend-item off">Fuera de horario</span>
+          </div>
         </div>
       )}
     </div>
