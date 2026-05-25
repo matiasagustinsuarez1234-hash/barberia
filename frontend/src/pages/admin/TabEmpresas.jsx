@@ -63,6 +63,7 @@ export default function TabEmpresas() {
   const cancelEdit = () => { setEditing(null); setForm(emptyForm); setImageFile(null); setLogoFile(null); setMsg(''); };
 
   const toggleActive = async (s) => { await api.put(`/shops/${s._id}`, { active: !s.active }); load(); };
+  const toggleWaBizTab = async (s) => { await api.put(`/shops/${s._id}`, { showWhatsappBusinessTab: !s.showWhatsappBusinessTab }); load(); };
 
   const deleteShop = async (id) => {
     if (!confirm('Eliminar empresa?\n\nSe eliminarán en cascada todos sus barberos, actividades, turnos, horarios y suscripciones.\n\nEsta accion NO se puede deshacer.')) return;
@@ -139,6 +140,15 @@ export default function TabEmpresas() {
             <div className="item-actions">
               <button type="button" className="btn-icon" onClick={() => toggleActive(s)} title={s.active ? 'Desactivar' : 'Activar'}>
                 {s.active ? '✓' : '✗'}
+              </button>
+              <button
+                type="button"
+                className="btn-icon"
+                onClick={() => toggleWaBizTab(s)}
+                title={s.showWhatsappBusinessTab ? 'Ocultar tab WA Business al admin' : 'Mostrar tab WA Business al admin'}
+                style={{ fontSize: '0.75rem', opacity: s.showWhatsappBusinessTab ? 1 : 0.4 }}
+              >
+                WA
               </button>
               <button type="button" className="btn-icon" onClick={() => editShop(s)}>✏</button>
               <button type="button" className="btn-icon btn-danger" onClick={() => deleteShop(s._id)}>🗑</button>

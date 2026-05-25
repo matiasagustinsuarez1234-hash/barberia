@@ -76,14 +76,17 @@ export const createReservation = async (req, res) => {
       { path: 'barber', select: 'name whatsapp' },
       { path: 'activity', select: 'title price' },
       { path: 'client', select: 'name phone' },
-      { path: 'shop', select: 'name whatsappNumber' },
+      { path: 'shop', select: 'name whatsappNumber whatsappEnabled notifyAdminOnBooking notifyClientOnBooking' },
     ]);
     res.status(201).json({ ok: true, reservation: populated });
 
-    // Notificar al admin de la barbería
+    // Notificaciones post-creación
     try {
       const { shop: s, barber: b, activity: a, client: c } = populated;
-      if (s?.whatsappEnabled && s?.whatsappNumber) {
+      const shopId = s._id.toString();
+
+      // Notificar al admin si tiene número y la opción activada
+      if (s?.whatsappEnabled && s?.whatsappNumber && s?.notifyAdminOnBooking !== false) {
         const msg =
           `*Nuevo turno reservado*\n\n` +
           `Cliente: ${c.name} (${c.phone})\n` +
@@ -91,12 +94,26 @@ export const createReservation = async (req, res) => {
           `Barbero: ${b.name}\n` +
           `Fecha: ${reservation.date}\n` +
           `Hora: ${reservation.time}`;
-        waSend(s._id.toString(), s.whatsappNumber, msg).catch((e) =>
+        waSend(shopId, s.whatsappNumber, msg).catch((e) =>
           console.warn('[WA] Error notificando nuevo turno al admin:', e.message),
         );
       }
+
+      // Notificar al cliente si la opción está activada
+      if (s?.whatsappEnabled && s?.notifyClientOnBooking !== false) {
+        const clientMsg =
+          `*Tu turno está confirmado* ✅\n\n` +
+          `Hola ${c.name}, registramos tu turno en *${s.name}*.\n\n` +
+          `Servicio: ${a.title}\n` +
+          `Barbero: ${b.name}\n` +
+          `Fecha: ${reservation.date}\n` +
+          `Hora: ${reservation.time}`;
+        waSend(shopId, c.phone, clientMsg).catch((e) =>
+          console.warn('[WA] Error notificando nuevo turno al cliente:', e.message),
+        );
+      }
     } catch (e) {
-      console.warn('[WA] Error preparando notificacion de nuevo turno:', e.message);
+      console.warn('[WA] Error preparando notificaciones de nuevo turno:', e.message);
     }
   } catch (error) {
     res.status(500).json({ ok: false, msg: 'Error creando turno' });

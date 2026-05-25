@@ -17,16 +17,21 @@ import TabWhatsAppCentral from './admin/TabWhatsAppCentral';
 import TabWhatsApp from './admin/TabWhatsApp';
 
 const SUPER_TABS = ['Empresas', 'Admins', 'Planes', 'Suscripciones', 'WhatsApp'];
-const SHOP_TABS = ['Turnos', 'Barberos', 'Actividades', 'Horarios', 'Dias Cerrados', 'Clientes', 'Configuracion', 'WhatsApp Business', 'QR'];
+const BASE_SHOP_TABS = ['Turnos', 'Barberos', 'Actividades', 'Horarios', 'Dias Cerrados', 'Clientes', 'Configuracion', 'QR'];
 
 export default function AdminPanel() {
   const { role, shopName } = useAuth();
   const isSuperAdmin = role === 'superadmin';
-  const tabs = isSuperAdmin ? SUPER_TABS : SHOP_TABS;
-  const [tab, setTab] = useState(tabs[0]);
+  const [tab, setTab] = useState(isSuperAdmin ? SUPER_TABS[0] : BASE_SHOP_TABS[0]);
   const [shop, setShop] = useState(null);
   const [shopLoading, setShopLoading] = useState(true);
   const [copyMsg, setCopyMsg] = useState('');
+
+  const tabs = isSuperAdmin
+    ? SUPER_TABS
+    : shop?.showWhatsappBusinessTab
+      ? [...BASE_SHOP_TABS.slice(0, -1), 'WhatsApp Business', BASE_SHOP_TABS[BASE_SHOP_TABS.length - 1]]
+      : BASE_SHOP_TABS;
 
   useEffect(() => {
     if (isSuperAdmin) return;

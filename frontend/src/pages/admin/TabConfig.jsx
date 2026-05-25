@@ -11,6 +11,12 @@ export default function TabConfig() {
   const [waMsgType, setWaMsgType] = useState('success');
   const [waLoading, setWaLoading] = useState(false);
 
+  // Notificaciones
+  const [notifyAdmin, setNotifyAdmin] = useState(true);
+  const [notifyClient, setNotifyClient] = useState(true);
+  const [notifMsg, setNotifMsg] = useState('');
+  const [notifLoading, setNotifLoading] = useState(false);
+
   const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [pwMsg, setPwMsg] = useState('');
   const [pwMsgType, setPwMsgType] = useState('error');
@@ -22,6 +28,8 @@ export default function TabConfig() {
         const s = r.data.shops?.[0] || null;
         setShop(s);
         setWaNumber(s?.whatsappNumber ?? '');
+        setNotifyAdmin(s?.notifyAdminOnBooking !== false);
+        setNotifyClient(s?.notifyClientOnBooking !== false);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -47,12 +55,29 @@ export default function TabConfig() {
       setShop(res.data.shop);
       setWaNumber(res.data.shop.whatsappNumber ?? '');
       setWaMsgType('success');
-      setWaMsg(normalized ? 'Número guardado. Te llegará copia de cada turno.' : 'Número eliminado. No recibirás notificaciones.');
+      setWaMsg(normalized ? 'Número guardado.' : 'Número eliminado.');
     } catch (err) {
       setWaMsgType('error');
       setWaMsg(err.response?.data?.msg || 'Error guardando número');
     } finally {
       setWaLoading(false);
+    }
+  };
+
+  const handleNotifSubmit = async (e) => {
+    e.preventDefault();
+    setNotifMsg('');
+    setNotifLoading(true);
+    try {
+      await api.put(`/shops/${shop._id}`, {
+        notifyAdminOnBooking: notifyAdmin,
+        notifyClientOnBooking: notifyClient,
+      });
+      setNotifMsg('Preferencias guardadas');
+    } catch {
+      setNotifMsg('Error guardando preferencias');
+    } finally {
+      setNotifLoading(false);
     }
   };
 
@@ -103,7 +128,31 @@ export default function TabConfig() {
         </button>
       </form>
 
-      <h3 style={{ marginTop: '24px' }}>Cambiar mi clave</h3>
+      <h3 style={{ marginTop: '28px' }}>Envío de notificaciones</h3>
+      <form className="admin-form notif-form" onSubmit={handleNotifSubmit}>
+        <label className="notif-option">
+          <input
+            type="checkbox"
+            checked={notifyAdmin}
+            onChange={(e) => setNotifyAdmin(e.target.checked)}
+          />
+          <span>Notificarme también a mí los turnos nuevos</span>
+        </label>
+        <label className="notif-option">
+          <input
+            type="checkbox"
+            checked={notifyClient}
+            onChange={(e) => setNotifyClient(e.target.checked)}
+          />
+          <span>Notificar al cliente cuando saca un turno</span>
+        </label>
+        {notifMsg && <p className="success-text">{notifMsg}</p>}
+        <button type="submit" className="btn-confirm" disabled={notifLoading}>
+          {notifLoading ? 'Guardando...' : 'Guardar preferencias'}
+        </button>
+      </form>
+
+      <h3 style={{ marginTop: '28px' }}>Cambiar mi clave</h3>
       <form className="admin-form" onSubmit={handlePwSubmit}>
         <input
           name="currentPassword"

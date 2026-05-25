@@ -38,7 +38,8 @@ export const updateShop = async (req, res) => {
     if (req.role !== 'superadmin' && req.user.shop?.toString() !== id) {
       return res.status(403).json({ ok: false, msg: 'Sin permisos para esta barberia' });
     }
-    const { name, slug, cuit, address, phone, whatsappNumber, active, mercadopagoEnabled } = req.body;
+    const { name, slug, cuit, address, phone, whatsappNumber, active, mercadopagoEnabled,
+            showWhatsappBusinessTab, notifyAdminOnBooking, notifyClientOnBooking } = req.body;
     const updates = {};
     if (name !== undefined) updates.name = name;
     if (slug !== undefined) updates.slug = slug || null;
@@ -48,6 +49,9 @@ export const updateShop = async (req, res) => {
     if (whatsappNumber !== undefined) updates.whatsappNumber = whatsappNumber;
     if (active !== undefined) updates.active = active;
     if (mercadopagoEnabled !== undefined) updates.mercadopagoEnabled = mercadopagoEnabled;
+    if (showWhatsappBusinessTab !== undefined) updates.showWhatsappBusinessTab = showWhatsappBusinessTab;
+    if (notifyAdminOnBooking !== undefined) updates.notifyAdminOnBooking = notifyAdminOnBooking;
+    if (notifyClientOnBooking !== undefined) updates.notifyClientOnBooking = notifyClientOnBooking;
     if (req.files?.image?.[0]) updates.image = `/uploads/${req.files.image[0].filename}`;
     if (req.files?.logo?.[0]) updates.logo = `/uploads/${req.files.logo[0].filename}`;
 

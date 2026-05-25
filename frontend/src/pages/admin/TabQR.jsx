@@ -3,36 +3,62 @@ import { QRCode } from 'react-qr-code';
 export default function TabQR({ shop, shopLoading, shopUrl, copyMsg, handleCopyUrl, handlePrintQr }) {
   return (
     <div className="qr-tab">
-      <h3>QR para pedir turnos</h3>
-      <p>Imprimí o compartí este código para que tus clientes lleguen directo a tu página de reservas.</p>
-      <div className="qr-card">
-        <div className="qr-card-header">
-          <div>
-            <p className="qr-label">URL pública</p>
-            {shopLoading ? (
-              <p>Cargando barbería...</p>
-            ) : shop ? (
-              <p className="qr-url">{shopUrl}</p>
-            ) : (
-              <p>No hay slug definido para tu barbería.</p>
-            )}
-          </div>
-          <div className="qr-actions">
-            <button type="button" className="btn-confirm-sm" onClick={handlePrintQr} disabled={shopLoading || !shopUrl}>Imprimir QR</button>
-            <button type="button" className="btn-secondary" onClick={handleCopyUrl} disabled={!shopUrl}>Copiar enlace</button>
-          </div>
-        </div>
-        <div className="qr-card-body">
-          <div className="qr-preview">
-            {shopUrl ? (
-              <QRCode value={shopUrl} size={180} />
-            ) : (
-              <p>Definí un slug en la barbería para generar la URL de turnos.</p>
-            )}
-          </div>
-          {copyMsg && <div className="copy-msg">{copyMsg}</div>}
-        </div>
+      <div className="qr-page-header">
+        <h3>Código QR de turnos</h3>
+        <p>Compartí o imprimí este QR para que tus clientes reserven desde el celular, sin llamadas.</p>
       </div>
+
+      {shopLoading ? (
+        <p>Cargando...</p>
+      ) : !shopUrl ? (
+        <div className="qr-empty">
+          <span className="qr-empty-icon">📎</span>
+          <p>Definí un <strong>identificador URL</strong> en los datos de la empresa para generar el QR.</p>
+        </div>
+      ) : (
+        <div className="qr-main-card">
+          {/* Columna izquierda: QR */}
+          <div className="qr-left">
+            <div className="qr-code-wrapper">
+              <QRCode value={shopUrl} size={200} />
+            </div>
+            <p className="qr-scan-hint">Escaneá con la cámara del celular</p>
+          </div>
+
+          {/* Columna derecha: info + acciones */}
+          <div className="qr-right">
+            <div className="qr-shop-name">{shop?.name}</div>
+
+            <div className="qr-url-block">
+              <span className="qr-url-label">URL pública</span>
+              <span className="qr-url-text">{shopUrl}</span>
+            </div>
+
+            <div className="qr-actions-stack">
+              <button
+                type="button"
+                className="btn-confirm qr-btn"
+                onClick={handleCopyUrl}
+              >
+                📋 Copiar enlace
+              </button>
+              <button
+                type="button"
+                className="btn-secondary qr-btn"
+                onClick={handlePrintQr}
+              >
+                🖨 Imprimir QR
+              </button>
+            </div>
+
+            {copyMsg && <div className="qr-copy-toast">{copyMsg}</div>}
+
+            <p className="qr-tip">
+              💡 <strong>Tip:</strong> pegá el QR en la puerta del local o en las redes sociales para que los clientes saquen turno solos.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
