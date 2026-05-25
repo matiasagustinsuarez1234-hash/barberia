@@ -381,11 +381,11 @@ async function _createReservation({ client, shopSlug, barberId, activityId, addi
       `Te esperamos!${bookingLink}`;
   }
 
-  if (shop.whatsappEnabled) {
+  if (shop.whatsappEnabled && shop.notifyClientOnBooking !== false) {
     waSend(shop._id.toString(), client.phone, confirmMsg).catch((e) => console.warn('WA confirmacion cliente error:', e));
   }
 
-  if (shop.whatsappEnabled && shop.whatsappNumber) {
+  if (shop.whatsappEnabled && shop.whatsappNumber && shop.notifyAdminOnBooking !== false) {
     const adminMsg =
       `*Nuevo turno reservado*\n\n` +
       `Cliente: ${client.name} (${client.phone})\n` +

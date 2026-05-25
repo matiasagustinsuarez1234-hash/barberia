@@ -138,7 +138,7 @@ export const sendReminder = async (req, res) => {
       { path: 'client', select: 'name phone' },
       { path: 'barber', select: 'name' },
       { path: 'activity', select: 'title' },
-      { path: 'shop', select: 'name slug whatsappEnabled whatsappNumber' },
+      { path: 'shop', select: 'name slug whatsappEnabled whatsappNumber notifyAdminOnBooking' },
     ]);
     if (!reservation) return res.status(404).json({ ok: false, msg: 'Turno no encontrado' });
     if (!reservation.shop?.whatsappEnabled) return res.status(400).json({ ok: false, msg: 'WhatsApp deshabilitado para este negocio' });
@@ -157,7 +157,7 @@ export const sendReminder = async (req, res) => {
 
     await waSend(shopId, client.phone, msg);
 
-    if (shop.whatsappNumber) {
+    if (shop.whatsappNumber && shop.notifyAdminOnBooking !== false) {
       const adminMsg =
         `*Recordatorio enviado*\n\n` +
         `Se le envió un recordatorio a ${client.name} por su turno del ${reservation.date} a las ${reservation.time}.`;
