@@ -5,18 +5,19 @@ import { normalizeArgPhoneAny } from '../../utils/phoneUtils';
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace('/api', '');
 
 export default function TabConfig() {
-  const [shop, setShop] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [shop, setShop]           = useState(null);
+  const [loading, setLoading]     = useState(true);
+  const [includesWA, setIncludesWA] = useState(false); // plan.includesReminders
 
-  const [waNumber, setWaNumber] = useState('');
-  const [waMsg, setWaMsg] = useState('');
+  const [waNumber, setWaNumber]   = useState('');
+  const [waMsg, setWaMsg]         = useState('');
   const [waMsgType, setWaMsgType] = useState('success');
   const [waLoading, setWaLoading] = useState(false);
 
   // Notificaciones
-  const [notifyAdmin, setNotifyAdmin] = useState(true);
+  const [notifyAdmin, setNotifyAdmin]   = useState(true);
   const [notifyClient, setNotifyClient] = useState(true);
-  const [notifMsg, setNotifMsg] = useState('');
+  const [notifMsg, setNotifMsg]         = useState('');
   const [notifLoading, setNotifLoading] = useState(false);
 
   // Logo
@@ -32,13 +33,14 @@ export default function TabConfig() {
   const [pwLoading, setPwLoading] = useState(false);
 
   useEffect(() => {
-    api.get('/shops')
-      .then((r) => {
-        const s = r.data.shops?.[0] || null;
+    Promise.all([api.get('/shops'), api.get('/subscriptions/mine')])
+      .then(([shopRes, subRes]) => {
+        const s = shopRes.data.shops?.[0] || null;
         setShop(s);
         setWaNumber(s?.whatsappNumber ?? '');
         setNotifyAdmin(s?.notifyAdminOnBooking !== false);
         setNotifyClient(s?.notifyClientOnBooking !== false);
+        setIncludesWA(subRes.data.subscription?.plan?.includesReminders === true);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -211,26 +213,49 @@ export default function TabConfig() {
       </form>
 
       {/* ── Notificaciones ── */}
-      <h3 style={{ marginTop: '28px' }}>Envío de notificaciones</h3>
+      <h3 style={{ marginTop: '28px' }}>Envío de notificaciones por WhatsApp</h3>
+      <p className="wa-subtitle">
+        {includesWA
+          ? 'Tu plan incluye notificaciones por WhatsApp. Configurá qué mensajes querés enviar.'
+          : 'Tu plan actual no incluye notificaciones por WhatsApp. Actualizá tu plan para activarlas.'}
+      </p>
       <form className="admin-form notif-form" onSubmit={handleNotifSubmit}>
-        <label className="notif-option">
+        <label className={`notif-option${!includesWA ? ' notif-locked' : ''}`}>
           <input
             type="checkbox"
             checked={notifyAdmin}
+            disabled={!includesWA}
             onChange={(e) => setNotifyAdmin(e.target.checked)}
           />
-          <span>Notificarme también a mí los turnos nuevos</span>
+          <span>Notificarme a mí cuando entra un turno nuevo</span>
         </label>
-        <label className="notif-option">
+        <label className={`notif-option${!includesWA ? ' notif-locked' : ''}`}>
           <input
             type="checkbox"
             checked={notifyClient}
+            disabled={!includesWA}
             onChange={(e) => setNotifyClient(e.target.checked)}
           />
           <span>Notificar al cliente cuando saca un turno</span>
         </label>
+        <label className={`notif-option${!includesWA ? ' notif-locked' : ''}`}>
+          <input
+            type="checkbox"
+            checked={includesWA}
+            disabled
+          />
+          <span>
+            Recordatorios diarios a las 8 AM
+            {!includesWA && <span className="notif-plan-tag"> · Requiere plan superior</span>}
+          </span>
+        </label>
+        {!includesWA && (
+          <p className="notif-upgrade-hint">
+            🔒 Contactá al administrador para actualizar tu plan e incluir notificaciones por WhatsApp.
+          </p>
+        )}
         {notifMsg && <p className="success-text">{notifMsg}</p>}
-        <button type="submit" className="btn-confirm" disabled={notifLoading}>
+        <button type="submit" className="btn-confirm" disabled={notifLoading || !includesWA}>
           {notifLoading ? 'Guardando...' : 'Guardar preferencias'}
         </button>
       </form>

@@ -618,7 +618,12 @@
     border-radius: 8px;
     transition: background 0.15s;
 
-    &:hover { background: #f0f0f0; }
+    &:hover:not(.notif-locked) { background: #f0f0f0; }
+
+    &.notif-locked {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
 
     input[type='checkbox'] {
       width: 17px;
@@ -626,7 +631,25 @@
       accent-color: #1a7a4a;
       cursor: pointer;
       flex-shrink: 0;
+
+      &:disabled { cursor: not-allowed; }
     }
+  }
+
+  .notif-plan-tag {
+    font-size: 0.75rem;
+    color: #999;
+    font-weight: 400;
+  }
+
+  .notif-upgrade-hint {
+    font-size: 0.82rem;
+    color: #888;
+    background: #fafafa;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 0;
   }
 }
 
@@ -1176,8 +1199,41 @@
 .rl-wrap { max-width: 900px; }
 
 .rl-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
   margin-bottom: 20px;
+  flex-wrap: wrap;
+
   h3 { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+}
+
+.btn-run-now {
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 18px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  &:hover    { background: #333; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.rl-run-result {
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+
+  &.ok    { background: #d1e7dd; color: #0f5132; }
+  &.error { background: #f8d7da; color: #842029; }
 }
 
 .rl-subtitle { font-size: 0.82rem; color: #888; }

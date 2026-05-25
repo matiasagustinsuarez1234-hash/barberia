@@ -8,7 +8,7 @@ import { send as waSend } from './whatsappManager.js';
 const DELAY_MS = 2000; // 2 segundos entre cada envío
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function sendDailyReminders() {
+export async function runReminders() {
   const today = new Date().toISOString().split('T')[0];
   console.log(`[Recordatorios] Buscando turnos pendientes para ${today}...`);
 
@@ -30,7 +30,10 @@ async function sendDailyReminders() {
   const subs = await Subscription.find({ shop: { $in: shopIds }, status: 'active' }).populate('plan', 'includesReminders');
   const subByShop = Object.fromEntries(subs.map((s) => [s.shop.toString(), s]));
 
-  const toSend = reservations.filter((r) => subByShop[r.shop._id.toString()]?.plan?.includesReminders);
+  const toSend = reservations.filter((r) =>
+    subByShop[r.shop._id.toString()]?.plan?.includesReminders &&
+    r.notes !== '[TEST]'   // ignorar turnos de demo
+  );
   const skipped = reservations.length - toSend.length;
 
   console.log(
@@ -71,11 +74,13 @@ async function sendDailyReminders() {
 
   // Guardar resultado en MongoDB para consulta desde el panel
   await ReminderLog.create({ date: today, sent, errorCount: errors, skipped, failedList });
+
+  return { sent, errorCount: errors, skipped };
 }
 
 export function startReminderJob() {
   cron.schedule('0 8 * * *', () => {
-    sendDailyReminders().catch((e) => console.error('[Recordatorios] Error inesperado:', e.message));
+    runReminders().catch((e) => console.error('[Recordatorios] Error inesperado:', e.message));
   }, { timezone: 'America/Argentina/Buenos_Aires' });
 
   console.log('[Recordatorios] Cron de recordatorios registrado (8:00 AM Argentina).');
