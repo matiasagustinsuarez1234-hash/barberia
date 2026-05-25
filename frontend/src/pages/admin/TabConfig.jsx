@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import api from '../../utils/api';
 import { normalizeArgPhoneAny } from '../../utils/phoneUtils';
 
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace('/api', '');
+
 export default function TabConfig() {
   const [shop, setShop] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -16,6 +18,13 @@ export default function TabConfig() {
   const [notifyClient, setNotifyClient] = useState(true);
   const [notifMsg, setNotifMsg] = useState('');
   const [notifLoading, setNotifLoading] = useState(false);
+
+  // Logo
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [logoMsg, setLogoMsg] = useState('');
+  const [logoMsgType, setLogoMsgType] = useState('success');
+  const [logoLoading, setLogoLoading] = useState(false);
 
   const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [pwMsg, setPwMsg] = useState('');
@@ -81,6 +90,41 @@ export default function TabConfig() {
     }
   };
 
+  const handleLogoChange = (e) => {
+    const file = e.target.files[0] || null;
+    setLogoFile(file);
+    setLogoMsg('');
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setLogoPreview(ev.target.result);
+      reader.readAsDataURL(file);
+    } else {
+      setLogoPreview(null);
+    }
+  };
+
+  const handleLogoSubmit = async (e) => {
+    e.preventDefault();
+    if (!logoFile) return;
+    setLogoLoading(true);
+    setLogoMsg('');
+    try {
+      const fd = new FormData();
+      fd.append('logo', logoFile);
+      const res = await api.put(`/shops/${shop._id}`, fd);
+      setShop(res.data.shop);
+      setLogoFile(null);
+      setLogoPreview(null);
+      setLogoMsgType('success');
+      setLogoMsg('Logo actualizado correctamente');
+    } catch (err) {
+      setLogoMsgType('error');
+      setLogoMsg(err.response?.data?.msg || 'Error subiendo el logo');
+    } finally {
+      setLogoLoading(false);
+    }
+  };
+
   const handlePwChange = (e) => setPwForm((p) => ({ ...p, [e.target.name]: e.target.value }));
 
   const handlePwSubmit = async (e) => {
@@ -109,9 +153,47 @@ export default function TabConfig() {
 
   if (loading) return <p>Cargando...</p>;
 
+  const currentLogo = shop?.logo || shop?.image;
+
   return (
     <div>
-      <h3>Número de WhatsApp del negocio</h3>
+      {/* ── Logo ── */}
+      <h3>Logo del negocio</h3>
+      <p className="wa-subtitle">Este logo aparece en la pantalla de turnos que ven tus clientes.</p>
+      <div className="logo-config-row">
+        <div className="logo-current">
+          {currentLogo ? (
+            <img src={`${API_BASE}${currentLogo}`} alt="Logo actual" className="logo-preview-img" />
+          ) : (
+            <div className="logo-placeholder">Sin logo</div>
+          )}
+          <span className="logo-current-label">Logo actual</span>
+        </div>
+        <form className="admin-form logo-form" onSubmit={handleLogoSubmit}>
+          <label className="file-upload-label">
+            <span>Seleccioná una imagen</span>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleLogoChange}
+            />
+            <span className="file-name-hint">{logoFile ? logoFile.name : 'Sin archivo seleccionado'}</span>
+          </label>
+          {logoPreview && (
+            <div className="logo-preview-new">
+              <img src={logoPreview} alt="Vista previa" className="logo-preview-img" />
+              <span className="logo-current-label">Vista previa</span>
+            </div>
+          )}
+          {logoMsg && <p className={logoMsgType === 'success' ? 'success-text' : 'error-text'}>{logoMsg}</p>}
+          <button type="submit" className="btn-confirm" disabled={logoLoading || !logoFile}>
+            {logoLoading ? 'Subiendo...' : 'Guardar logo'}
+          </button>
+        </form>
+      </div>
+
+      {/* ── WhatsApp ── */}
+      <h3 style={{ marginTop: '28px' }}>Número de WhatsApp del negocio</h3>
       <p className="wa-subtitle">
         A este número te llega copia de cada turno nuevo. Si lo dejás vacío, no recibís notificaciones.
       </p>
@@ -128,6 +210,7 @@ export default function TabConfig() {
         </button>
       </form>
 
+      {/* ── Notificaciones ── */}
       <h3 style={{ marginTop: '28px' }}>Envío de notificaciones</h3>
       <form className="admin-form notif-form" onSubmit={handleNotifSubmit}>
         <label className="notif-option">
@@ -152,6 +235,7 @@ export default function TabConfig() {
         </button>
       </form>
 
+      {/* ── Contraseña ── */}
       <h3 style={{ marginTop: '28px' }}>Cambiar mi clave</h3>
       <form className="admin-form" onSubmit={handlePwSubmit}>
         <input

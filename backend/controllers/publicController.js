@@ -4,6 +4,7 @@ import Reservation from '../models/Reservation.js';
 import Schedule from '../models/Schedule.js';
 import Barbershop from '../models/Barbershop.js';
 import ClosedDay from '../models/ClosedDay.js';
+import WorkableFeriado from '../models/WorkableFeriado.js';
 import Client from '../models/Client.js';
 import { send as waSend } from '../utils/whatsappManager.js';
 import { getArgentinaFeriados } from '../utils/feriados.js';
@@ -60,7 +61,14 @@ export const getPublicClosedDays = async (req, res) => {
     const year = new Date().getFullYear();
     const feriados = getArgentinaFeriados(year).map((f) => f.date);
     const nextYearFeriados = getArgentinaFeriados(year + 1).map((f) => f.date);
-    const allClosed = [...new Set([...days.map((d) => d.date), ...feriados, ...nextYearFeriados])];
+    const allFeriados = [...feriados, ...nextYearFeriados];
+
+    // Excluir feriados que la barbería eligió trabajar
+    const worked = await WorkableFeriado.find({ shop }).select('date');
+    const workedSet = new Set(worked.map((w) => w.date));
+    const feriadosActivos = allFeriados.filter((d) => !workedSet.has(d));
+
+    const allClosed = [...new Set([...days.map((d) => d.date), ...feriadosActivos])];
     res.json({ ok: true, closedDates: allClosed });
   } catch (error) {
     res.status(500).json({ ok: false, msg: 'Error obteniendo dias cerrados' });

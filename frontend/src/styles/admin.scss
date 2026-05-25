@@ -660,3 +660,123 @@
     cursor: pointer;
   }
 }
+
+/* ── Feriados con check ── */
+.feriados-list {
+  gap: 6px;
+}
+
+.feriado-item {
+  transition: background 0.15s;
+
+  &.feriado-worked {
+    background: #f0faf4;
+    border-color: #b2dfca;
+  }
+}
+
+.feriado-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  flex: 1;
+
+  input[type='checkbox'] {
+    width: 17px;
+    height: 17px;
+    accent-color: #1a7a4a;
+    cursor: pointer;
+    flex-shrink: 0;
+
+    &:disabled { opacity: 0.4; cursor: wait; }
+  }
+}
+
+.feriado-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  strong { font-size: 0.9rem; }
+  span { font-size: 0.82rem; color: #666; }
+}
+
+.feriado-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+
+  &.badge-worked {
+    background: #d4edda;
+    color: #1a7a4a;
+  }
+
+  &.badge-closed {
+    background: #f0f0f0;
+    color: #999;
+  }
+}
+
+/* ── Logo en Configuración ── */
+.logo-config-row {
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.logo-current {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.logo-preview-img {
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+  border-radius: 10px;
+  border: 1px solid #eee;
+  background: #f9f9f9;
+  padding: 4px;
+}
+
+.logo-placeholder {
+  width: 100px;
+  height: 100px;
+  border-radius: 10px;
+  border: 1px dashed #ccc;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  color: #aaa;
+}
+
+.logo-current-label {
+  font-size: 0.75rem;
+  color: #aaa;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.logo-form {
+  flex: 1;
+  min-width: 220px;
+}
+
+.logo-preview-new {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 2px;
+}

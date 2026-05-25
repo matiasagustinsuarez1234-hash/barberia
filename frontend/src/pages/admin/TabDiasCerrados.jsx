@@ -4,19 +4,43 @@ import api from '../../utils/api';
 export default function TabDiasCerrados() {
   const [closedDays, setClosedDays] = useState([]);
   const [feriados, setFeriados] = useState([]);
+  const [workedFeriados, setWorkedFeriados] = useState(new Set());
   const [date, setDate] = useState('');
   const [reason, setReason] = useState('');
   const [msg, setMsg] = useState('');
   const [msgType, setMsgType] = useState('error');
   const [loading, setLoading] = useState(false);
-  const [confirmData, setConfirmData] = useState(null); // { date, reason, count, reservations }
+  const [confirmData, setConfirmData] = useState(null);
+  const [toggling, setToggling] = useState(null); // date que se está toggling
 
   const load = () => api.get('/closed-days').then((r) => setClosedDays(r.data.closedDays)).catch(() => {});
+
   const loadFeriados = () => {
     const year = new Date().getFullYear();
     api.get(`/public/feriados?year=${year}`).then((r) => setFeriados(r.data.feriados || [])).catch(() => {});
   };
-  useEffect(() => { load(); loadFeriados(); }, []);
+
+  const loadWorked = () =>
+    api.get('/worked-feriados').then((r) => setWorkedFeriados(new Set(r.data.dates || []))).catch(() => {});
+
+  useEffect(() => { load(); loadFeriados(); loadWorked(); }, []);
+
+  const handleToggleFeriado = async (date) => {
+    setToggling(date);
+    try {
+      if (workedFeriados.has(date)) {
+        await api.delete(`/worked-feriados/${date}`);
+        setWorkedFeriados((prev) => { const s = new Set(prev); s.delete(date); return s; });
+      } else {
+        await api.post('/worked-feriados', { date });
+        setWorkedFeriados((prev) => new Set([...prev, date]));
+      }
+    } catch {
+      // silencioso
+    } finally {
+      setToggling(null);
+    }
+  };
 
   const handleCheck = async (e) => {
     e.preventDefault();
@@ -135,17 +159,33 @@ export default function TabDiasCerrados() {
         ))}
       </div>
 
-      <h3 style={{ marginTop: '24px' }}>Feriados nacionales {new Date().getFullYear()}</h3>
-      <p className="wa-subtitle">Estos días se bloquean automáticamente en el calendario de turnos.</p>
-      <div className="admin-list">
-        {feriados.map((f) => (
-          <div key={f.date} className="admin-list-item">
-            <div>
-              <strong>{f.date}</strong>
-              <span className="tag-list">{f.name}</span>
+      <h3 style={{ marginTop: '28px' }}>Feriados nacionales {new Date().getFullYear()}</h3>
+      <p className="wa-subtitle">
+        Por defecto los feriados se bloquean en el calendario. Activá el check en los que vayas a trabajar.
+      </p>
+      <div className="admin-list feriados-list">
+        {feriados.map((f) => {
+          const worked = workedFeriados.has(f.date);
+          return (
+            <div key={f.date} className={`admin-list-item feriado-item ${worked ? 'feriado-worked' : ''}`}>
+              <label className="feriado-label">
+                <input
+                  type="checkbox"
+                  checked={worked}
+                  disabled={toggling === f.date}
+                  onChange={() => handleToggleFeriado(f.date)}
+                />
+                <div className="feriado-info">
+                  <strong>{f.date}</strong>
+                  <span>{f.name}</span>
+                </div>
+              </label>
+              <span className={`feriado-badge ${worked ? 'badge-worked' : 'badge-closed'}`}>
+                {worked ? 'Trabajamos' : 'Cerrado'}
+              </span>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
