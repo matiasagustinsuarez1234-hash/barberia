@@ -778,29 +778,36 @@
   th {
     background: #111;
     color: #fff;
-    padding: 8px 10px;
+    padding: 7px 10px;
     font-weight: 600;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     text-align: center;
     white-space: nowrap;
   }
 
   .th-time {
-    width: 56px;
+    width: 52px;
     background: #333;
   }
 
-  td { border: 1px solid #eee; vertical-align: top; }
+  // Todas las celdas: altura fija y compacta
+  td {
+    border: 1px solid #eee;
+    vertical-align: middle;
+    height: 30px;
+    padding: 0;
+  }
 
   .td-time {
-    padding: 6px 8px;
-    font-size: 0.75rem;
+    padding: 0 8px;
+    font-size: 0.72rem;
     font-weight: 700;
-    color: #888;
+    color: #999;
     white-space: nowrap;
     background: #fafafa;
     text-align: right;
     font-family: monospace;
+    height: 30px;
   }
 
   // Fuera de horario
@@ -808,35 +815,26 @@
     background: #f5f5f5;
     color: #ccc;
     text-align: center;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
   }
 
   // Pasados del día (sin showPast)
-  .sg-past {
-    background: #f9f9f9;
-    color: #ddd;
-    text-align: center;
-    font-size: 0.7rem;
-  }
+  .sg-past { background: #f9f9f9; }
 
   // Disponible
   .sg-free {
     background: #f0faf4;
     color: #1a7a4a;
-    font-size: 0.75rem;
+    font-size: 0.73rem;
     font-weight: 600;
     text-align: center;
-    padding: 6px 4px;
   }
 
-  // Turno ocupado — primera fila
-  .sg-booked { padding: 0; }
-
+  // Turno ocupado — primera fila (info completa)
   .sg-start {
-    padding: 6px 8px;
+    padding: 0 8px;
     background: #fff8f0;
     border-left: 3px solid #e07b00;
-    position: relative;
 
     &.status-confirmed {
       background: #f0faf4;
@@ -845,11 +843,11 @@
     &.status-cancelled {
       background: #fdf2f2;
       border-left-color: #c0392b;
-      opacity: 0.6;
+      opacity: 0.55;
     }
   }
 
-  // Turno ocupado — filas de continuación
+  // Turno ocupado — filas de continuación (fondo coloreado, vacío)
   .sg-cont {
     background: #fef3e2;
     border-left: 3px solid #e07b00;
@@ -860,41 +858,49 @@
     }
   }
 
+  // Layout horizontal de la celda ocupada
+  .sg-cell-main {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    height: 30px;
+  }
+
+  .sg-cell-info {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 0.78rem;
+    line-height: 1;
+  }
+
   .sg-client {
-    display: block;
     font-weight: 700;
-    font-size: 0.82rem;
     color: #111;
-    line-height: 1.3;
   }
 
-  .sg-activity {
-    display: block;
-    font-size: 0.72rem;
-    color: #888;
-    line-height: 1.3;
-  }
+  .sg-sep { color: #ccc; }
 
-  .sg-phone {
-    display: block;
-    font-size: 0.7rem;
-    color: #aaa;
-    margin-top: 1px;
-  }
+  .sg-activity { color: #777; }
+
+  .sg-phone { color: #aaa; font-size: 0.72rem; }
 
   .sg-actions {
     display: flex;
-    gap: 4px;
-    margin-top: 5px;
-    flex-wrap: wrap;
+    gap: 3px;
+    flex-shrink: 0;
     align-items: center;
-  }
 
-  .sg-badge {
-    display: inline-block;
-    margin-top: 4px;
-    font-size: 0.65rem;
-    padding: 1px 6px;
+    // Botones más pequeños dentro de la grilla
+    .btn-small {
+      padding: 3px 7px;
+      font-size: 0.72rem;
+      border-radius: 5px;
+      line-height: 1;
+    }
   }
 }
 

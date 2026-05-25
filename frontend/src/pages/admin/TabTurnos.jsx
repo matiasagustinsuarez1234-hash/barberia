@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../../utils/api';
 
-const STATUS_LABEL = { pending: 'Pendiente', confirmed: 'Confirmado', cancelled: 'Cancelado' };
-const STATUS_CLASS  = { pending: 'badge-pending', confirmed: 'badge-confirmed', cancelled: 'badge-cancelled' };
+const STATUS_CLASS = { pending: 'status-pending', confirmed: 'status-confirmed', cancelled: 'status-cancelled' };
 
 function addDays(dateStr, days) {
   const d = new Date(dateStr + 'T00:00:00');
@@ -40,8 +39,6 @@ export default function TabTurnos() {
   const [loading, setLoading]           = useState(true);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [showPast, setShowPast]         = useState(false);
-  const [cancelingId, setCancelingId]   = useState(null);
-  const [cancelReason, setCancelReason] = useState('');
   const [remindingId, setRemindingId]   = useState(null);
 
   const today   = new Date().toISOString().split('T')[0];
@@ -68,25 +65,24 @@ export default function TabTurnos() {
     setRemindingId(null);
   };
 
-  const handleCancel = async (id) => {
-    await changeStatus(id, 'cancelled', cancelReason);
-    setCancelingId(null);
-    setCancelReason('');
+  // Cancelación con prompt nativo (mantiene la grilla compacta)
+  const handleCancelPrompt = async (id) => {
+    if (!window.confirm('¿Cancelar este turno?')) return;
+    const reason = window.prompt('Motivo de cancelación (opcional — presioná OK para continuar):') ?? '';
+    await changeStatus(id, 'cancelled', reason);
   };
 
   const navigate = (delta) => {
     const next = addDays(selectedDate, delta);
     if (next < today) return;
     setSelectedDate(next);
-    setCancelingId(null);
-    setCancelReason('');
   };
 
   // ── Grilla ──────────────────────────────────────────────
   const dayOfWeek      = new Date(selectedDate + 'T00:00:00').getDay();
   const todaySchedules = schedules.filter((s) => s.weekday === dayOfWeek && s.active !== false);
 
-  // Slots del día (cada 30 min, union de todos los barberos)
+  // Slots del día (cada 30 min, unión de todos los barberos)
   let slots = [];
   if (todaySchedules.length > 0) {
     const minStart = Math.min(...todaySchedules.map((s) => timeToMin(s.startTime)));
@@ -134,7 +130,7 @@ export default function TabTurnos() {
         </div>
         <button type="button" className="date-nav-btn" onClick={() => navigate(1)} title="Día siguiente">›</button>
         {!isToday && (
-          <button type="button" className="date-nav-today" onClick={() => { setSelectedDate(today); }}>Hoy</button>
+          <button type="button" className="date-nav-today" onClick={() => setSelectedDate(today)}>Hoy</button>
         )}
       </div>
 
@@ -168,48 +164,47 @@ export default function TabTurnos() {
                     const cell = getCell(s.barber?._id, slot, s);
 
                     if (cell.type === 'off')  return <td key={s._id} className="sg-off">—</td>;
-                    if (cell.type === 'past') return <td key={s._id} className="sg-past">·</td>;
+                    if (cell.type === 'past') return <td key={s._id} className="sg-past"></td>;
                     if (cell.type === 'free') return <td key={s._id} className="sg-free">Disponible</td>;
+                    if (cell.type === 'cont') return <td key={s._id} className={`sg-cont ${STATUS_CLASS[cell.r.status]}`}></td>;
 
-                    if (cell.type === 'start') {
-                      const r = cell.r;
-                      return (
-                        <td key={s._id} className={`sg-booked sg-start status-${r.status}`}>
-                          <span className="sg-client">{r.client?.name}</span>
-                          <span className="sg-activity">{r.activity?.title}</span>
-                          {r.client?.phone && <span className="sg-phone">📞 {r.client.phone}</span>}
-                          <div className="sg-actions">
-                            {r.status === 'pending' && (
-                              <button type="button" className="btn-small btn-confirm-sm" onClick={() => changeStatus(r._id, 'confirmed')}>✓</button>
-                            )}
-                            {r.status === 'pending' && (
-                              <button type="button" className="btn-small" onClick={() => handleRemind(r._id)} disabled={remindingId === r._id} title="Enviar recordatorio">
-                                {remindingId === r._id ? '...' : '📲'}
-                              </button>
-                            )}
-                            {cancelingId === r._id ? (
-                              <div className="cancel-reason-form">
-                                <input
-                                  type="text"
-                                  placeholder="Motivo (opcional)"
-                                  value={cancelReason}
-                                  onChange={(e) => setCancelReason(e.target.value)}
-                                  autoFocus
-                                />
-                                <button type="button" className="btn-small btn-cancel-sm" onClick={() => handleCancel(r._id)}>Confirmar</button>
-                                <button type="button" className="btn-small" onClick={() => { setCancelingId(null); setCancelReason(''); }}>×</button>
-                              </div>
-                            ) : (
-                              <button type="button" className="btn-small btn-cancel-sm" onClick={() => setCancelingId(r._id)}>✕</button>
+                    // start
+                    const r = cell.r;
+                    return (
+                      <td key={s._id} className={`sg-start ${STATUS_CLASS[r.status]}`}>
+                        <div className="sg-cell-main">
+                          <div className="sg-cell-info">
+                            <span className="sg-client">{r.client?.name}</span>
+                            <span className="sg-sep"> · </span>
+                            <span className="sg-activity">{r.activity?.title}</span>
+                            {r.client?.phone && (
+                              <span className="sg-phone"> · {r.client.phone}</span>
                             )}
                           </div>
-                          <span className={`sg-badge badge ${STATUS_CLASS[r.status]}`}>{STATUS_LABEL[r.status]}</span>
-                        </td>
-                      );
-                    }
-
-                    // cont
-                    return <td key={s._id} className={`sg-booked sg-cont status-${cell.r.status}`}></td>;
+                          <div className="sg-actions">
+                            {r.status === 'pending' && (
+                              <button
+                                type="button"
+                                className="btn-small"
+                                onClick={() => handleRemind(r._id)}
+                                disabled={remindingId === r._id}
+                                title="Enviar recordatorio por WhatsApp"
+                              >
+                                {remindingId === r._id ? '…' : '📲'}
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className="btn-small btn-cancel-sm"
+                              onClick={() => handleCancelPrompt(r._id)}
+                              title="Cancelar turno"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+                    );
                   })}
                 </tr>
               ))}
