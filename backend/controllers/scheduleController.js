@@ -4,7 +4,7 @@ export const getSchedules = async (req, res) => {
   try {
     const shop = req.user?.shop || req.query.shop;
     const filter = shop ? { shop } : {};
-    const schedules = await Schedule.find(filter).populate('barber', 'name');
+    const schedules = await Schedule.find(filter).populate('barber', 'name surchargeType surchargeValue');
     res.json({ ok: true, schedules });
   } catch (error) {
     res.status(500).json({ ok: false, msg: 'Error obteniendo horarios' });

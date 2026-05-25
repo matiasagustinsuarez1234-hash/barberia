@@ -27,24 +27,29 @@ function minToTime(m) {
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 }
 
-function isPastTime(time) {
+function isPastSlot(slotTime) {
   const now = new Date();
-  const [h, m] = time.split(':').map(Number);
+  const [h, m] = slotTime.split(':').map(Number);
   return h * 60 + m < now.getHours() * 60 + now.getMinutes();
+}
+
+function formatMoney(n) {
+  return n > 0
+    ? `$${n.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`
+    : '—';
 }
 
 // ── Popup de cliente ──────────────────────────────────────────────────────────
 function ClientPopup({ res, pos, onClose, onRemind, remindingId }) {
   const popupRef = useRef(null);
 
-  // Ajustar posición para no salirse de la pantalla
   useEffect(() => {
     if (!popupRef.current) return;
-    const rect   = popupRef.current.getBoundingClientRect();
-    const vw     = window.innerWidth;
-    const vh     = window.innerHeight;
-    const el     = popupRef.current;
-    if (rect.right > vw - 8)  el.style.left = `${vw - rect.width - 8}px`;
+    const rect = popupRef.current.getBoundingClientRect();
+    const vw   = window.innerWidth;
+    const vh   = window.innerHeight;
+    const el   = popupRef.current;
+    if (rect.right  > vw - 8) el.style.left = `${vw - rect.width - 8}px`;
     if (rect.bottom > vh - 8) el.style.top  = `${pos.top - rect.height - 8}px`;
   }, [pos]);
 
@@ -82,7 +87,6 @@ export default function TabTurnos() {
   const [schedules, setSchedules]       = useState([]);
   const [loading, setLoading]           = useState(true);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [showPast, setShowPast]         = useState(false);
   const [remindingId, setRemindingId]   = useState(null);
   const [popupRes, setPopupRes]         = useState(null);
   const [popupPos, setPopupPos]         = useState({ top: 0, left: 0 });
@@ -166,7 +170,6 @@ export default function TabTurnos() {
     const schedStart = timeToMin(sched.startTime);
     const schedEnd   = timeToMin(sched.endTime);
     if (slotMin < schedStart || slotMin >= schedEnd) return { type: 'off' };
-    if (isToday && !showPast && isPastTime(slotTime))  return { type: 'past' };
     for (const r of (resByBarber[barberId] || [])) {
       const rStart = timeToMin(r.time);
       const rEnd   = r.endTime ? timeToMin(r.endTime) : rStart + (sched.slotMinutes || 45);
@@ -176,6 +179,24 @@ export default function TabTurnos() {
     }
     return { type: 'free' };
   };
+
+  // ── Revenue por barbero del día ───────────────────────────────────────────
+  const dayRevenue = Object.fromEntries(
+    todaySchedules.map((s) => {
+      const bid      = s.barber?._id;
+      const barberRes = reservations.filter(
+        (r) => r.date === selectedDate && r.status !== 'cancelled' && r.barber?._id === bid
+      );
+      const base = barberRes.reduce((sum, r) => sum + (r.activity?.price || 0), 0);
+      let total  = base;
+      if (s.barber?.surchargeType === 'percent' && s.barber.surchargeValue > 0) {
+        total = Math.round(base * (1 + s.barber.surchargeValue / 100));
+      } else if (s.barber?.surchargeType === 'fixed' && s.barber.surchargeValue > 0) {
+        total = base + barberRes.length * s.barber.surchargeValue;
+      }
+      return [bid, total];
+    })
+  );
 
   if (loading) return <p>Cargando...</p>;
 
@@ -194,14 +215,6 @@ export default function TabTurnos() {
         )}
       </div>
 
-      {/* Toggle pasados (solo hoy) */}
-      {isToday && (
-        <label className="show-past-toggle">
-          <input type="checkbox" checked={showPast} onChange={(e) => setShowPast(e.target.checked)} />
-          <span>Mostrar horarios ya pasados</span>
-        </label>
-      )}
-
       {/* ── Grilla ── */}
       {todaySchedules.length === 0 ? (
         <p className="empty-msg">No hay horarios configurados para este día.</p>
@@ -217,52 +230,72 @@ export default function TabTurnos() {
               </tr>
             </thead>
             <tbody>
-              {slots.map((slot) => (
-                <tr key={slot}>
-                  <td className="td-time">{slot}</td>
-                  {todaySchedules.map((s) => {
-                    const cell = getCell(s.barber?._id, slot, s);
+              {slots.map((slot) => {
+                const past = isToday && isPastSlot(slot);
+                return (
+                  <tr key={slot}>
+                    <td className={`td-time${past ? ' td-time-past' : ''}`}>{slot}</td>
+                    {todaySchedules.map((s) => {
+                      const cell = getCell(s.barber?._id, slot, s);
 
-                    if (cell.type === 'off')  return <td key={s._id} className="sg-off">—</td>;
-                    if (cell.type === 'past') return <td key={s._id} className="sg-past"></td>;
-                    if (cell.type === 'free') return <td key={s._id} className="sg-free">Disponible</td>;
-                    if (cell.type === 'cont') return <td key={s._id} className={`sg-cont ${STATUS_CLASS[cell.r.status]}`}></td>;
+                      if (cell.type === 'off')
+                        return <td key={s._id} className="sg-off">—</td>;
+                      if (cell.type === 'free')
+                        return <td key={s._id} className={`sg-free${past ? ' sg-is-past' : ''}`}>Disponible</td>;
+                      if (cell.type === 'cont')
+                        return <td key={s._id} className={`sg-cont ${STATUS_CLASS[cell.r.status]}${past ? ' sg-is-past' : ''}`}></td>;
 
-                    // start
-                    const r = cell.r;
-                    return (
-                      <td key={s._id} className={`sg-start ${STATUS_CLASS[r.status]}`}>
-                        <div className="sg-cell-main">
-                          <div className="sg-cell-info">
-                            <span className="sg-client">{r.client?.name}</span>
-                            <span className="sg-sep"> · </span>
-                            <span className="sg-activity">{r.activity?.title}</span>
+                      // start
+                      const r = cell.r;
+                      return (
+                        <td key={s._id} className={`sg-start ${STATUS_CLASS[r.status]}${past ? ' sg-is-past' : ''}`}>
+                          <div className="sg-cell-main">
+                            <div className="sg-cell-info">
+                              <span className="sg-client">{r.client?.name}</span>
+                              <span className="sg-sep"> · </span>
+                              <span className="sg-activity">{r.activity?.title}</span>
+                            </div>
+                            <div className="sg-actions">
+                              <button
+                                type="button"
+                                className={`btn-small btn-client${popupRes?._id === r._id ? ' active' : ''}`}
+                                onClick={(e) => handleOpenPopup(e, r)}
+                                title="Ver cliente"
+                              >
+                                👤
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-small btn-cancel-sm"
+                                onClick={() => handleCancelPrompt(r._id)}
+                                title="Cancelar turno"
+                              >
+                                ✕
+                              </button>
+                            </div>
                           </div>
-                          <div className="sg-actions">
-                            <button
-                              type="button"
-                              className={`btn-small btn-client${popupRes?._id === r._id ? ' active' : ''}`}
-                              onClick={(e) => handleOpenPopup(e, r)}
-                              title="Ver cliente"
-                            >
-                              👤
-                            </button>
-                            <button
-                              type="button"
-                              className="btn-small btn-cancel-sm"
-                              onClick={() => handleCancelPrompt(r._id)}
-                              title="Cancelar turno"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </div>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
             </tbody>
+
+            {/* ── Fila de totales ── */}
+            <tfoot>
+              <tr>
+                <td className="tf-label">Total día</td>
+                {todaySchedules.map((s) => {
+                  const total = dayRevenue[s.barber?._id] || 0;
+                  return (
+                    <td key={s._id} className={`tf-amount${total === 0 ? ' tf-zero' : ''}`}>
+                      {formatMoney(total)}
+                    </td>
+                  );
+                })}
+              </tr>
+            </tfoot>
           </table>
 
           {/* Leyenda */}
@@ -270,11 +303,12 @@ export default function TabTurnos() {
             <span className="sg-legend-item free">Disponible</span>
             <span className="sg-legend-item pending">Ocupado</span>
             <span className="sg-legend-item off">Fuera de horario</span>
+            <span className="sg-legend-item past">Ya pasado</span>
           </div>
         </div>
       )}
 
-      {/* Popup de cliente (fuera de la tabla para z-index correcto) */}
+      {/* Popup de cliente */}
       {popupRes && (
         <ClientPopup
           res={popupRes}

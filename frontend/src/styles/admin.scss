@@ -820,9 +820,6 @@
     font-size: 0.72rem;
   }
 
-  // Pasados del día (sin showPast)
-  .sg-past { background: #f9f9f9; }
-
   // Disponible  →  verde claro
   .sg-free {
     background: #f0faf4;
@@ -830,6 +827,12 @@
     font-size: 0.73rem;
     font-weight: 600;
     text-align: center;
+  }
+
+  // Slots ya pasados hoy → apagados
+  .sg-is-past {
+    opacity: 0.38;
+    filter: grayscale(0.6);
   }
 
   // Turno pendiente  →  naranja claro  (color por defecto de sg-start / sg-cont)
@@ -905,6 +908,31 @@
       &.active { background: #333; color: #fff; border-color: #333; }
     }
   }
+
+  // Hora pasada → número en gris
+  .td-time-past { color: #ccc; }
+
+  // Fila de totales al pie
+  tfoot td {
+    background: #111;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.78rem;
+    text-align: center;
+    padding: 7px 8px;
+    border: none;
+    white-space: nowrap;
+  }
+
+  .tf-label {
+    background: #222;
+    text-align: right;
+    font-size: 0.72rem;
+    color: #aaa;
+    padding: 5px 8px;
+  }
+
+  .tf-amount.tf-zero { color: #555; font-weight: 400; }
 }
 
 // Leyenda
@@ -933,6 +961,7 @@
     &.free::before    { background: #f0faf4; border: 1px solid #1a7a4a; }
     &.pending::before { background: #fff8f0; border-left: 3px solid #e07b00; }
     &.off::before     { background: #f5f5f5; border: 1px solid #ddd; }
+    &.past::before    { background: #f5f5f5; border: 1px solid #ccc; opacity: 0.4; }
   }
 }
 
