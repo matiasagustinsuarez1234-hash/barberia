@@ -126,7 +126,12 @@ export default function TabTurnos() {
 
   const handleRemind = async (id) => {
     setRemindingId(id);
-    try { await api.post(`/reservations/${id}/remind`); } catch { /* */ }
+    try {
+      await api.post(`/reservations/${id}/remind`);
+      alert('Notificación push enviada');
+    } catch (err) {
+      alert(err.response?.data?.msg || 'Error enviando notificación');
+    }
     setRemindingId(null);
     setPopupRes(null);
   };

@@ -2,7 +2,7 @@
 import Client from '../models/Client.js';
 import Barber from '../models/Barber.js';
 import Activity from '../models/Activity.js';
-import { send as waSend } from '../utils/whatsappManager.js';
+import { sendPushToClient } from '../utils/pushManager.js';
 
 export const getReservations = async (req, res) => {
   try {
@@ -138,34 +138,28 @@ export const sendReminder = async (req, res) => {
       { path: 'client', select: 'name phone' },
       { path: 'barber', select: 'name' },
       { path: 'activity', select: 'title' },
-      { path: 'shop', select: 'name slug whatsappEnabled whatsappNumber notifyAdminOnBooking' },
+      { path: 'shop', select: 'name slug' },
     ]);
     if (!reservation) return res.status(404).json({ ok: false, msg: 'Turno no encontrado' });
-    if (!reservation.shop?.whatsappEnabled) return res.status(400).json({ ok: false, msg: 'WhatsApp deshabilitado para este negocio' });
 
     const { client, barber, activity, shop } = reservation;
-    const shopId = reservation.shop._id.toString();
-    const bookingLink = shop.slug ? `\n${process.env.PUBLIC_URL}/${shop.slug}/turnos` : '';
-    const msg =
-      `*Recordatorio de turno*\n\n` +
-      `Hola ${client.name}, te recordamos que tenés un turno en *${shop.name}*.\n\n` +
-      `Servicio: ${activity.title}\n` +
-      `Barbero: ${barber.name}\n` +
-      `Fecha: ${reservation.date}\n` +
-      `Hora: ${reservation.time}\n\n` +
-      `Para reservar o cancelar tu turno:${bookingLink}`;
 
-    await waSend(shopId, client.phone, msg);
+    const result = await sendPushToClient(client.phone, {
+      title: `Recordatorio — ${shop.name}`,
+      body: `${activity.title} con ${barber.name} — ${reservation.date} a las ${reservation.time}`,
+      url: shop.slug ? `/${shop.slug}/turnos` : '/',
+    });
 
-    if (shop.whatsappNumber && shop.notifyAdminOnBooking !== false) {
-      const adminMsg =
-        `*Recordatorio enviado*\n\n` +
-        `Se le envió un recordatorio a ${client.name} por su turno del ${reservation.date} a las ${reservation.time}.`;
-      waSend(shopId, shop.whatsappNumber, adminMsg).catch((e) => console.warn('[WA] Error notificando recordatorio al admin:', e.message));
+    if (result === 'no_subscription') {
+      return res.status(400).json({ ok: false, msg: `${client.name} no tiene notificaciones activadas en su navegador` });
     }
+    if (result === 'expired') {
+      return res.status(400).json({ ok: false, msg: 'La suscripción del cliente expiró. Debe volver a activar los recordatorios.' });
+    }
+
     res.json({ ok: true });
   } catch (e) {
-    console.warn('[WA] Error enviando recordatorio manual:', e.message);
+    console.warn('[Push] Error enviando recordatorio manual:', e.message);
     res.status(500).json({ ok: false, msg: 'Error enviando recordatorio' });
   }
 };

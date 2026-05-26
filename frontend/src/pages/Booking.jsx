@@ -14,14 +14,25 @@ function urlBase64ToUint8Array(base64String) {
 async function subscribeToPush(phone) {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
   try {
-    const reg = await navigator.serviceWorker.register('/sw.js');
+    // Registrar y esperar a que el SW esté activo
+    await navigator.serviceWorker.register('/sw.js');
+    const reg = await navigator.serviceWorker.ready;
+
+    // Verificar si ya hay suscripción activa
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) {
+      await api.post('/push/subscribe', { phone, subscription: existing });
+      console.log('[Push] Suscripción existente re-guardada');
+      return;
+    }
+
     const { data } = await api.get('/push/vapid-key');
     const subscription = await reg.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(data.publicKey),
     });
     await api.post('/push/subscribe', { phone, subscription });
-    console.log('[Push] Suscripción guardada');
+    console.log('[Push] Suscripción nueva guardada');
   } catch (e) {
     console.warn('[Push] No se pudo suscribir:', e.message);
   }
