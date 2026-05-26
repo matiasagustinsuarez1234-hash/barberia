@@ -111,18 +111,14 @@ export default function Booking() {
   const [clientPhone, setClientPhone] = useState('');
   const [clientEmail, setClientEmail] = useState('');
 
-  // OTP (paso 3)
-  const [otpCode, setOtpCode] = useState('');
-
   const [msg, setMsg] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [reservations, setReservations] = useState([]);
 
   // Flujo de cancelación
-  const [cancelView, setCancelView] = useState(null); // null | 'phone' | 'otp' | 'list'
+  const [cancelView, setCancelView] = useState(null); // null | 'phone' | 'list'
   const [cancelPhone, setCancelPhone] = useState('');
-  const [cancelOtpCode, setCancelOtpCode] = useState('');
   const [cancelReservations, setCancelReservations] = useState([]);
   const [cancelMsg, setCancelMsg] = useState('');
   const [cancelLoading, setCancelLoading] = useState(false);
@@ -270,7 +266,7 @@ export default function Booking() {
     setStep(2);
   };
 
-  // --- Paso 2: enviar datos → backend decide si necesita OTP ---
+  // --- Paso 2: datos del cliente → reservar directo ---
   const handleClientSubmit = async (e) => {
     e.preventDefault();
     if (!clientName || !clientPhone) return setMsg('Nombre y celular son obligatorios');
@@ -284,40 +280,17 @@ export default function Booking() {
     setLoading(true);
     setMsg('');
     try {
-      const resp = await api.post('/otp/send', {
-        phone: normalizedPhone,
-        name: clientName,
-        email: clientEmail,
-        shopSlug,
-      });
-      if (resp.data.clientExists) {
-        await _doBook({ isNew: false, phone: normalizedPhone });
-      } else {
-        setStep(3);
-      }
+      // Registra/actualiza cliente y reserva en un solo paso
+      await api.post('/otp/send', { phone: normalizedPhone, name: clientName, email: clientEmail, shopSlug });
+      await _doBook({ phone: normalizedPhone });
     } catch (err) {
-      setMsg(err.response?.data?.msg || 'Error enviando codigo');
+      setMsg(err.response?.data?.msg || 'Error al confirmar el turno');
     } finally {
       setLoading(false);
     }
   };
 
-  // --- Paso 3: verificar OTP y reservar ---
-  const handleOtpSubmit = async (e) => {
-    e.preventDefault();
-    if (!otpCode) return setMsg('Ingresa el codigo');
-    setLoading(true);
-    setMsg('');
-    try {
-      await _doBook({ isNew: true, code: otpCode });
-    } catch (err) {
-      setMsg(err.response?.data?.msg || 'Codigo incorrecto o expirado');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const _doBook = async ({ isNew, code, phone: explicitPhone }) => {
+  const _doBook = async ({ phone: explicitPhone }) => {
     const groupSlots = getGroupSlots(selectedTime);
     const [primaryActivity, ...restActivities] = selectedActivities;
     const payload = {
@@ -337,10 +310,7 @@ export default function Booking() {
       }),
     };
 
-    const endpoint = isNew ? '/otp/verify-and-book' : '/otp/book';
-    if (isNew) payload.code = code;
-
-    const resp = await api.post(endpoint, payload);
+    const resp = await api.post('/otp/book', payload);
     setReservations(resp.data.reservations || [resp.data.reservation]);
     setSuccess(true);
 
@@ -349,7 +319,7 @@ export default function Booking() {
     subscribeToPush(phone);
   };
 
-  // --- Flujo cancelación ---
+  // --- Flujo cancelación (sin OTP) ---
   const handleCancelPhoneSubmit = async (e) => {
     e.preventDefault();
     setCancelMsg('');
@@ -357,26 +327,12 @@ export default function Booking() {
     if (error) return setCancelMsg(error);
     setCancelLoading(true);
     try {
-      await api.post('/otp/send-cancel', { phone, shopSlug });
+      const res = await api.post('/otp/verify-cancel', { phone, shopSlug });
       setCancelPhone(phone);
-      setCancelView('otp');
-    } catch (err) {
-      setCancelMsg(err.response?.data?.msg || 'Error enviando código');
-    } finally {
-      setCancelLoading(false);
-    }
-  };
-
-  const handleCancelOtpSubmit = async (e) => {
-    e.preventDefault();
-    setCancelMsg('');
-    setCancelLoading(true);
-    try {
-      const res = await api.post('/otp/verify-cancel', { phone: cancelPhone, code: cancelOtpCode, shopSlug });
       setCancelReservations(res.data.reservations);
       setCancelView('list');
     } catch (err) {
-      setCancelMsg(err.response?.data?.msg || 'Código incorrecto o expirado');
+      setCancelMsg(err.response?.data?.msg || 'No encontramos turnos para ese número');
     } finally {
       setCancelLoading(false);
     }
@@ -404,7 +360,6 @@ export default function Booking() {
     setClientName('');
     setClientPhone('');
     setClientEmail('');
-    setOtpCode('');
     setMsg('');
     setSuccess(false);
     setReservations([]);
@@ -426,7 +381,7 @@ export default function Booking() {
         <p className="subtitle success-confirm">
           {reservations.length > 1 ? `${reservations.length} turnos reservados!` : 'Turno reservado!'}
         </p>
-        <p className="subtitle">Te enviamos la confirmacion por WhatsApp.</p>
+        <p className="subtitle">Tu reserva quedó registrada. Si activaste las notificaciones del navegador te vamos a recordar el turno a las 8 AM.</p>
         <div className="reservations-summary">
           {reservations.map((r, i) => (
             <div key={r._id || i} className="reservation-summary">
@@ -452,7 +407,7 @@ export default function Booking() {
         {shopLogo && <img src={shopLogo} alt={shopName} className="shop-logo" />}
         <h1>{shopName}</h1>
         <p className="subtitle">Cancelar turno</p>
-        <p className="otp-info">Ingresá el celular con el que registraste tu turno y te enviaremos un código de verificación.</p>
+        <p className="otp-info">Ingresá el celular con el que registraste tu turno.</p>
         <form onSubmit={handleCancelPhoneSubmit}>
           <input
             className="input-text"
@@ -465,35 +420,7 @@ export default function Booking() {
           {cancelMsg && <p className="error-text">{cancelMsg}</p>}
           <div className="form-actions-booking">
             <button type="button" className="btn-secondary" onClick={() => { setCancelView(null); setCancelMsg(''); setCancelPhone(''); }}>Volver</button>
-            <button type="submit" className="btn-confirm" disabled={cancelLoading}>{cancelLoading ? 'Enviando...' : 'Enviar código'}</button>
-          </div>
-        </form>
-      </div>
-    );
-  }
-
-  if (cancelView === 'otp') {
-    return (
-      <div className="app-card">
-        {shopLogo && <img src={shopLogo} alt={shopName} className="shop-logo" />}
-        <h1>{shopName}</h1>
-        <p className="subtitle">Verificación</p>
-        <p className="otp-info">Te enviamos un código por WhatsApp al <strong>{cancelPhone}</strong>. Ingresalo para ver tus turnos.</p>
-        <form onSubmit={handleCancelOtpSubmit}>
-          <input
-            className="input-text input-otp"
-            type="text"
-            inputMode="numeric"
-            placeholder="Código de 6 dígitos"
-            maxLength={6}
-            value={cancelOtpCode}
-            onChange={(e) => setCancelOtpCode(e.target.value.replace(/\D/g, ''))}
-            required
-          />
-          {cancelMsg && <p className="error-text">{cancelMsg}</p>}
-          <div className="form-actions-booking">
-            <button type="button" className="btn-secondary" onClick={() => { setCancelView('phone'); setCancelMsg(''); setCancelOtpCode(''); }}>Volver</button>
-            <button type="submit" className="btn-confirm" disabled={cancelLoading}>{cancelLoading ? 'Verificando...' : 'Confirmar'}</button>
+            <button type="submit" className="btn-confirm" disabled={cancelLoading}>{cancelLoading ? 'Buscando...' : 'Ver mis turnos'}</button>
           </div>
         </form>
       </div>
@@ -841,38 +768,6 @@ export default function Booking() {
     );
   }
 
-  // Paso 3: codigo OTP (solo clientes nuevos)
-  return (
-    <div className="app-card">
-      <h1>{shopName}</h1>
-      <p className="subtitle">Verificacion</p>
-      <p className="otp-info">
-        Te enviamos un codigo de 6 digitos por WhatsApp al <strong>{clientPhone}</strong>.
-        Ingresalo para confirmar tu turno.
-      </p>
-
-      <form onSubmit={handleOtpSubmit}>
-        <input
-          className="input-text input-otp"
-          type="text"
-          inputMode="numeric"
-          placeholder="Codigo de 6 digitos"
-          maxLength={6}
-          value={otpCode}
-          onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-          required
-        />
-
-        {msg && <p className="error-text">{msg}</p>}
-        <div className="form-actions-booking">
-          <button type="button" className="btn-secondary" onClick={() => { setStep(2); setMsg(''); setOtpCode(''); }}>
-            Volver
-          </button>
-          <button type="submit" className="btn-confirm" disabled={loading}>
-            {loading ? 'Confirmando...' : 'Confirmar turno'}
-          </button>
-        </div>
-      </form>
-    </div>
-  );
+  // Paso 2 es el último paso — el turno se confirma al enviar el formulario
+  return null;
 }

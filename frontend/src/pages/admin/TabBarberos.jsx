@@ -83,7 +83,7 @@ export default function TabBarberos() {
       <form className="admin-form" onSubmit={handleSubmit}>
         <h3>{editing ? 'Editar Profesional' : 'Nuevo Profesional'}</h3>
         <input name="name" placeholder="Nombre *" value={form.name} onChange={handleChange} required />
-        <input name="whatsapp" placeholder="WhatsApp (ej: 5491100000000)" value={form.whatsapp} onChange={handleChange} />
+        {/* <input name="whatsapp" placeholder="WhatsApp (ej: 5491100000000)" value={form.whatsapp} onChange={handleChange} /> */}
         <input name="specialties" placeholder="Especialidades (separadas por coma)" value={form.specialties} onChange={handleChange} />
         <div className="field-row">
           <label style={{ fontSize: '0.9rem', whiteSpace: 'nowrap' }}>Recargo</label>

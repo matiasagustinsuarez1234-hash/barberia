@@ -194,71 +194,7 @@ export default function TabConfig() {
         </form>
       </div>
 
-      {/* ── WhatsApp ── */}
-      <h3 style={{ marginTop: '28px' }}>Número de WhatsApp del negocio</h3>
-      <p className="wa-subtitle">
-        A este número te llega copia de cada turno nuevo. Si lo dejás vacío, no recibís notificaciones.
-      </p>
-      <form className="admin-form" onSubmit={handleWaSubmit}>
-        <input
-          type="text"
-          placeholder="Ej: 1161234567 (sin el 0 ni el 15)"
-          value={waNumber}
-          onChange={(e) => setWaNumber(e.target.value)}
-        />
-        {waMsg && <p className={waMsgType === 'success' ? 'success-text' : 'error-text'}>{waMsg}</p>}
-        <button type="submit" className="btn-confirm" disabled={waLoading}>
-          {waLoading ? 'Guardando...' : 'Guardar número'}
-        </button>
-      </form>
-
-      {/* ── Notificaciones ── */}
-      <h3 style={{ marginTop: '28px' }}>Envío de notificaciones por WhatsApp</h3>
-      <p className="wa-subtitle">
-        {includesWA
-          ? 'Tu plan incluye notificaciones por WhatsApp. Configurá qué mensajes querés enviar.'
-          : 'Tu plan actual no incluye notificaciones por WhatsApp. Actualizá tu plan para activarlas.'}
-      </p>
-      <form className="admin-form notif-form" onSubmit={handleNotifSubmit}>
-        <label className={`notif-option${!includesWA ? ' notif-locked' : ''}`}>
-          <input
-            type="checkbox"
-            checked={notifyAdmin}
-            disabled={!includesWA}
-            onChange={(e) => setNotifyAdmin(e.target.checked)}
-          />
-          <span>Notificarme a mí cuando entra un turno nuevo</span>
-        </label>
-        <label className={`notif-option${!includesWA ? ' notif-locked' : ''}`}>
-          <input
-            type="checkbox"
-            checked={notifyClient}
-            disabled={!includesWA}
-            onChange={(e) => setNotifyClient(e.target.checked)}
-          />
-          <span>Notificar al cliente cuando saca un turno</span>
-        </label>
-        <label className={`notif-option${!includesWA ? ' notif-locked' : ''}`}>
-          <input
-            type="checkbox"
-            checked={includesWA}
-            disabled
-          />
-          <span>
-            Recordatorios diarios a las 8 AM
-            {!includesWA && <span className="notif-plan-tag"> · Requiere plan superior</span>}
-          </span>
-        </label>
-        {!includesWA && (
-          <p className="notif-upgrade-hint">
-            🔒 Contactá al administrador para actualizar tu plan e incluir notificaciones por WhatsApp.
-          </p>
-        )}
-        {notifMsg && <p className="success-text">{notifMsg}</p>}
-        <button type="submit" className="btn-confirm" disabled={notifLoading || !includesWA}>
-          {notifLoading ? 'Guardando...' : 'Guardar preferencias'}
-        </button>
-      </form>
+      {/* WhatsApp deshabilitado — secciones ocultas temporalmente */}
 
       {/* ── Contraseña ── */}
       <h3 style={{ marginTop: '28px' }}>Cambiar mi clave</h3>
