@@ -226,6 +226,51 @@ export default function TabTurnos() {
       {todaySchedules.length === 0 ? (
         <p className="empty-msg">No hay horarios configurados para este día.</p>
       ) : (
+        <>
+        {/* ── Vista mobile: un barbero por sección ── */}
+        <div className="schedule-mobile">
+          {todaySchedules.map((s) => {
+            const bid        = s.barber?._id;
+            const barberSlots = slots.filter((slot) => {
+              const t = timeToMin(slot);
+              return t >= timeToMin(s.startTime) && t < timeToMin(s.endTime);
+            });
+            return (
+              <div key={s._id} className="mb-barber-section">
+                <div className="mb-barber-header">{s.barber?.name || '—'}</div>
+                {barberSlots.map((slot) => {
+                  const cell = getCell(bid, slot, s);
+                  const past = isToday && isPastSlot(slot);
+                  if (cell.type === 'cont') return null;
+                  return (
+                    <div key={slot} className={`mb-slot${past ? ' sg-is-past' : ''}`}>
+                      <span className="mb-slot-time">{slot}</span>
+                      {cell.type === 'free' && <span className="mb-slot-free">Disponible</span>}
+                      {cell.type === 'start' && (
+                        <div className="mb-slot-info">
+                          <span className="mb-slot-client">{cell.r.client?.name}</span>
+                          <span className="mb-slot-activity">{cell.r.activity?.title}</span>
+                        </div>
+                      )}
+                      {cell.type === 'start' && (
+                        <button
+                          type="button"
+                          className={`btn-small btn-client${popupRes?._id === cell.r._id ? ' active' : ''}`}
+                          onClick={(e) => handleOpenPopup(e, cell.r)}
+                        >👤</button>
+                      )}
+                    </div>
+                  );
+                })}
+                <div className="mb-barber-total">
+                  Total: <strong>{formatMoney(dayRevenue[bid] || 0)}</strong>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ── Vista desktop: tabla ── */}
         <div className="schedule-grid-wrap">
           <table className="schedule-grid">
             <thead>
@@ -304,6 +349,7 @@ export default function TabTurnos() {
             <span className="sg-legend-item past">Ya pasado</span>
           </div>
         </div>
+        </>
       )}
 
       {/* Popup de cliente */}

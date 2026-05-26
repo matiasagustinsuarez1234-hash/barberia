@@ -94,8 +94,8 @@ const ObjId = S.Types.ObjectId;
 
 const Client      = mongoose.models.Client      || mongoose.model('Client',      new S({ name: String, phone: String, username: String, email: String }));
 const Barbershop  = mongoose.models.Barbershop  || mongoose.model('Barbershop',  new S({ name: String, slug: String, active: Boolean }));
-const Barber      = mongoose.models.Barber      || mongoose.model('Barber',      new S({ name: String, shop: ObjId, active: Boolean, specialties: [String], surchargeType: String, surchargeValue: Number }));
-const Activity    = mongoose.models.Activity    || mongoose.model('Activity',    new S({ title: String, price: Number, durationMinutes: Number, shop: ObjId, notes: String }));
+const Barber      = mongoose.models.Barber      || mongoose.model('Barber',      new S({ name: String, shop: ObjId, active: Boolean, specialties: [String], surchargeType: String, surchargeValue: Number, activities: [ObjId] }));
+const Activity    = mongoose.models.Activity    || mongoose.model('Activity',    new S({ title: String, price: Number, durationMinutes: Number, shop: ObjId, active: Boolean, notes: String }));
 const Schedule    = mongoose.models.Schedule    || mongoose.model('Schedule',    new S({ barber: ObjId, shop: ObjId, weekday: Number, startTime: String, endTime: String, slotMinutes: Number, active: Boolean }));
 const Reservation = mongoose.models.Reservation || mongoose.model('Reservation', new S({ shop: ObjId, barber: ObjId, activity: ObjId, client: ObjId, date: String, time: String, endTime: String, status: String, notes: String }));
 
@@ -164,7 +164,7 @@ async function run() {
   for (const def of DEMO_ACTIVITIES) {
     let act = await Activity.findOne({ shop: shop._id, title: def.title });
     if (!act) {
-      act = await Activity.create({ shop: shop._id, title: def.title, price: def.price, durationMinutes: def.durationMinutes });
+      act = await Activity.create({ shop: shop._id, title: def.title, price: def.price, durationMinutes: def.durationMinutes, active: true });
       console.log(`   ✚ Creada: ${def.title} (${def.durationMinutes} min, $${def.price.toLocaleString('es-AR')})`);
     } else {
       console.log(`   ✓ Ya existe: ${def.title}`);
@@ -186,6 +186,13 @@ async function run() {
     }
     barbers.push({ barber, def });
   }
+
+  // ── Asignar todas las actividades a cada barbero demo ────────────────────
+  const activityIds = activities.map(a => a._id);
+  for (const { barber } of barbers) {
+    await Barber.findByIdAndUpdate(barber._id, { activities: activityIds });
+  }
+  console.log(`\n🔗  Actividades asignadas a todos los barberos demo`);
 
   // ── Crear horarios Lun–Sab para cada barbero demo ────────────────────────
   console.log(`\n📅  Sincronizando horarios (Lun–Sab)...`);

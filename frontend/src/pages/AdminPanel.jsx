@@ -18,7 +18,7 @@ import TabWhatsApp from './admin/TabWhatsApp';
 import TabRecordatorios from './admin/TabRecordatorios';
 
 const SUPER_TABS = ['Empresas', 'Admins', 'Planes', 'Suscripciones', 'WhatsApp', 'Recordatorios'];
-const BASE_SHOP_TABS = ['Turnos', 'Barberos', 'Actividades', 'Horarios', 'Dias Cerrados', 'Clientes', 'Configuracion', 'QR'];
+const BASE_SHOP_TABS = ['Turnos', 'Profesionales', 'Actividades', 'Horarios', 'Dias Cerrados', 'Clientes', 'Configuracion', 'QR'];
 
 export default function AdminPanel() {
   const { role, shopName } = useAuth();
@@ -72,7 +72,7 @@ export default function AdminPanel() {
         ) : (
           <>
             {tab === 'Turnos' && <TabTurnos />}
-            {tab === 'Barberos' && <TabBarberos />}
+            {tab === 'Profesionales' && <TabBarberos />}
             {tab === 'Actividades' && <TabActividades />}
             {tab === 'Horarios' && <TabHorarios />}
             {tab === 'Dias Cerrados' && <TabDiasCerrados />}

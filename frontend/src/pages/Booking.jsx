@@ -156,7 +156,7 @@ export default function Booking() {
       .catch(() => setMsg('Error cargando horarios'));
   }, [selectedBarber, date, selectedActivities]);
 
-  // Cuando el usuario cambia de barbero, limpiar selección de servicios y fecha
+  // Cuando el usuario cambia de barbero, recargar actividades filtradas y limpiar selección
   const handleSelectBarber = (b) => {
     setSelectedBarber(b);
     setSelectedActivities([]);
@@ -164,6 +164,12 @@ export default function Booking() {
     setSelectedTime('');
     setSlots([]);
     setMsg('');
+    // Actividades del barbero (si no tiene asignadas, el back devuelve todas)
+    if (shopId) {
+      api.get(`/public/activities?shop=${shopId}&barber=${b._id}`)
+        .then((r) => setActivities(r.data.activities || []))
+        .catch(() => {});
+    }
   };
 
   // Toggle de actividad: añadir o quitar del array

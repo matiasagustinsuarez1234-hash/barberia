@@ -8,6 +8,7 @@ const BarberSchema = new mongoose.Schema({
   whatsapp: { type: String },
   surchargeType: { type: String, enum: ['none', 'percent', 'fixed'], default: 'none' },
   surchargeValue: { type: Number, default: 0 },
+  activities: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Activity' }],
   createdAt: { type: Date, default: Date.now },
 });
 

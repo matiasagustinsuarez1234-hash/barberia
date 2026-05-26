@@ -73,7 +73,7 @@ button, input, select, textarea { font: inherit; }
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  padding: 10px 24px;
+  padding: 0px 12px;
   background: $main-bg;
   border-bottom: 1px solid #eee;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
@@ -97,10 +97,10 @@ button, input, select, textarea { font: inherit; }
 }
 
 .topbar-shop-logo {
-  height: 48px;
+  height: 55px;
   width: auto;
   object-fit: contain;
-  border-radius: 7px;
+  border-radius: 5px;
 }
 
 .topbar-shop-name {

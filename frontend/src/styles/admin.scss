@@ -169,7 +169,8 @@
 
 .admin-list-item {
   display: flex;
-  align-items: center;
+  flex-direction: column; // permite que el panel de actividades se expanda abajo
+  align-items: stretch;
   justify-content: space-between;
   padding: 12px 14px;
   border: 1px solid #eee;
@@ -179,7 +180,69 @@
   &.inactive { opacity: 0.5; }
 }
 
+.barber-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .item-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+.tag-activities    { color: #1a7a4a; }
+.tag-no-activities { color: #e07b00; }
+
+/* Panel de actividades del barbero */
+.barber-act-panel {
+  border-top: 1px solid #f0f0f0;
+  padding-top: 12px;
+
+  .barber-act-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #555;
+    margin: 0 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+}
+
+.barber-act-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 6px;
+}
+
+.barber-act-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  transition: background 0.15s;
+
+  &:hover   { background: #f5f5f5; }
+  &.checked { background: #f0faf4; border-color: #1a7a4a; }
+
+  input[type='checkbox'] {
+    accent-color: #1a7a4a;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+}
+
+.barber-act-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.barber-act-name   { font-weight: 600; color: #111; }
+.barber-act-detail { font-size: 0.72rem; color: #888; }
 
 .btn-icon {
   background: none;
@@ -1079,6 +1142,92 @@
     text-align: center;
 
     &:hover { background: #b00020; color: #fff; }
+  }
+}
+
+/* ── Vista mobile de turnos ── */
+.schedule-mobile { display: none; }
+
+@media (max-width: 700px) {
+  .schedule-grid-wrap { display: none; }
+  .schedule-mobile    { display: flex; flex-direction: column; gap: 16px; margin-top: 8px; }
+
+  .mb-barber-section {
+    border: 1px solid #eee;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .mb-barber-header {
+    background: #111;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.82rem;
+    padding: 8px 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .mb-slot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border-bottom: 1px solid #f0f0f0;
+    min-height: 38px;
+
+    &:last-of-type { border-bottom: none; }
+  }
+
+  .mb-slot-time {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #999;
+    font-family: monospace;
+    flex-shrink: 0;
+    width: 38px;
+  }
+
+  .mb-slot-free {
+    font-size: 0.78rem;
+    color: #1a7a4a;
+    font-weight: 600;
+    flex: 1;
+  }
+
+  .mb-slot-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .mb-slot-client {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #111;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .mb-slot-activity {
+    font-size: 0.72rem;
+    color: #888;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .mb-barber-total {
+    background: #f5f5f5;
+    padding: 7px 12px;
+    font-size: 0.78rem;
+    color: #555;
+    text-align: right;
+
+    strong { color: #111; }
   }
 }
 

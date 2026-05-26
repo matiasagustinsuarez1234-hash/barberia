@@ -43,9 +43,19 @@ export const getPublicBarbers = async (req, res) => {
 
 export const getPublicActivities = async (req, res) => {
   try {
-    const { shop } = req.query;
+    const { shop, barber: barberId } = req.query;
     const filter = { active: true };
     if (shop) filter.shop = shop;
+
+    // Si viene un barbero, mostrar solo sus actividades asignadas
+    // Si el barbero no tiene actividades asignadas, mostrar todas las del negocio
+    if (barberId) {
+      const barber = await Barber.findById(barberId).select('activities');
+      if (barber?.activities?.length) {
+        filter._id = { $in: barber.activities };
+      }
+    }
+
     const activities = await Activity.find(filter).select('title description durationMinutes price').sort('title');
     res.json({ ok: true, activities });
   } catch (error) {
