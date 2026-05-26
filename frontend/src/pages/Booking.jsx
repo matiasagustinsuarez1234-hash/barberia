@@ -115,6 +115,7 @@ export default function Booking() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [reservations, setReservations] = useState([]);
+  const [pushState, setPushState] = useState('idle'); // idle | loading | done | unsupported
 
   // Flujo de cancelación
   const [cancelView, setCancelView] = useState(null); // null | 'phone' | 'list'
@@ -314,9 +315,6 @@ export default function Booking() {
     setReservations(resp.data.reservations || [resp.data.reservation]);
     setSuccess(true);
 
-    // Suscribir al cliente a push notifications para recordatorios
-    const phone = explicitPhone ?? clientPhone;
-    subscribeToPush(phone);
   };
 
   // --- Flujo cancelación (sin OTP) ---
@@ -375,13 +373,22 @@ export default function Booking() {
   }
 
   if (success) {
+    const handleActivarPush = async () => {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        return setPushState('unsupported');
+      }
+      setPushState('loading');
+      const phone = clientPhone;
+      await subscribeToPush(phone);
+      setPushState('done');
+    };
+
     return (
       <div className="app-card">
         <h1>{shopName}</h1>
         <p className="subtitle success-confirm">
-          {reservations.length > 1 ? `${reservations.length} turnos reservados!` : 'Turno reservado!'}
+          {reservations.length > 1 ? `${reservations.length} turnos reservados!` : '¡Turno reservado!'}
         </p>
-        <p className="subtitle">Tu reserva quedó registrada. Si activaste las notificaciones del navegador te vamos a recordar el turno a las 8 AM.</p>
         <div className="reservations-summary">
           {reservations.map((r, i) => (
             <div key={r._id || i} className="reservation-summary">
@@ -393,7 +400,21 @@ export default function Booking() {
             </div>
           ))}
         </div>
-        <button className="btn-confirm" type="button" onClick={resetForm}>
+
+        {/* Activar notificaciones */}
+        {pushState === 'idle' && (
+          <div className="push-prompt">
+            <p>🔔 ¿Querés recibir un recordatorio el día de tu turno a las 8 AM?</p>
+            <button type="button" className="btn-push" onClick={handleActivarPush}>
+              Activar recordatorio
+            </button>
+          </div>
+        )}
+        {pushState === 'loading' && <p className="push-msg">Activando...</p>}
+        {pushState === 'done' && <p className="push-msg push-ok">✓ Recordatorio activado</p>}
+        {pushState === 'unsupported' && <p className="push-msg">Tu navegador no soporta notificaciones.</p>}
+
+        <button className="btn-confirm" type="button" onClick={resetForm} style={{ marginTop: '16px' }}>
           Reservar otro turno
         </button>
       </div>

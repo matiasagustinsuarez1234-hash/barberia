@@ -468,6 +468,45 @@ textarea.input-text { resize: vertical; }
 }
 
 // Preview del rango horario seleccionado
+// ── Push notification prompt (pantalla de éxito del booking) ──
+.push-prompt {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin: 16px 0 0;
+  text-align: center;
+
+  p {
+    margin: 0 0 10px;
+    font-size: 0.9rem;
+    color: #0c4a6e;
+  }
+}
+
+.btn-push {
+  background: #0ea5e9;
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  padding: 10px 24px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover { background: #0284c7; }
+}
+
+.push-msg {
+  text-align: center;
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-top: 12px;
+
+  &.push-ok { color: #16a34a; font-weight: 600; }
+}
+
 .booking-time-range {
   display: flex;
   flex-direction: column;
