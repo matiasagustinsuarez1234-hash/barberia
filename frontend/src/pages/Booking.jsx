@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import api from '../utils/api';
 import { normalizeArgPhone, normalizeArgPhoneAny } from '../utils/phoneUtils';
 
@@ -77,14 +77,9 @@ function addMinutes(timeStr, minutes) {
   return `${nh}:${nm === 0 ? '00' : String(nm).padStart(2, '0')}`;
 }
 
-// Paso 1: elegir barbero → servicio(s) → fecha → hora
-// Paso 2: ingresar nombre, celular y mail → backend verifica si ya existe
-//   - Si existe: reserva directa (sin OTP)
-//   - Si es nuevo: envía OTP por WhatsApp → paso 3
-// Paso 3: ingresar codigo OTP → confirmar reserva
-
 export default function Booking() {
   const { shopSlug } = useParams();
+  const [searchParams] = useSearchParams();
   const dateBarRef = useRef(null);
 
   const [shopId, setShopId] = useState(null);
@@ -147,6 +142,13 @@ export default function Booking() {
       })
       .catch(() => setShopError('Barberia no encontrada'));
   }, [shopSlug]);
+
+  // Si llega desde notificación push → ir directo a "mis turnos"
+  useEffect(() => {
+    if (searchParams.get('ver') === 'mis-turnos') {
+      setCancelView('phone');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!shopId) return;
@@ -432,13 +434,14 @@ export default function Booking() {
     );
   }
 
-  // --- Vistas de cancelación ---
+  // --- Vistas de turnos del cliente ---
   if (cancelView === 'phone') {
+    const fromPush = searchParams.get('ver') === 'mis-turnos';
     return (
       <div className="app-card">
         {shopLogo && <img src={shopLogo} alt={shopName} className="shop-logo" />}
         <h1>{shopName}</h1>
-        <p className="subtitle">Cancelar turno</p>
+        <p className="subtitle">{fromPush ? '📅 Tus próximos turnos' : 'Cancelar turno'}</p>
         <p className="otp-info">Ingresá el celular con el que registraste tu turno.</p>
         <form onSubmit={handleCancelPhoneSubmit}>
           <input
@@ -451,7 +454,7 @@ export default function Booking() {
           />
           {cancelMsg && <p className="error-text">{cancelMsg}</p>}
           <div className="form-actions-booking">
-            <button type="button" className="btn-secondary" onClick={() => { setCancelView(null); setCancelMsg(''); setCancelPhone(''); }}>Volver</button>
+            {!fromPush && <button type="button" className="btn-secondary" onClick={() => { setCancelView(null); setCancelMsg(''); setCancelPhone(''); }}>Volver</button>}
             <button type="submit" className="btn-confirm" disabled={cancelLoading}>{cancelLoading ? 'Buscando...' : 'Ver mis turnos'}</button>
           </div>
         </form>
@@ -464,28 +467,23 @@ export default function Booking() {
       <div className="app-card">
         {shopLogo && <img src={shopLogo} alt={shopName} className="shop-logo" />}
         <h1>{shopName}</h1>
-        <p className="subtitle">Tus turnos</p>
+        <p className="subtitle success-confirm">📅 Tus próximos turnos</p>
         {cancelReservations.length === 0 ? (
           <p className="empty-msg">No tenés turnos activos en este negocio.</p>
         ) : (
-          <div className="reservations-list">
+          <div className="reservations-summary">
             {cancelReservations.map((r) => (
-              <div key={r._id} className="reservation-item pending">
-                <div className="reservation-header">
-                  <span className="reservation-date">{r.date} - {r.time}</span>
-                </div>
-                <div className="reservation-body">
-                  <strong>{r.activity?.title}</strong> con {r.barber?.name}
-                </div>
-                <div className="reservation-actions">
-                  <button type="button" className="btn-small btn-cancel-sm" onClick={() => handleCancelReservation(r._id)}>Cancelar turno</button>
-                </div>
+              <div key={r._id} className="reservation-summary">
+                <p><strong>{r.activity?.title}</strong></p>
+                <p>Profesional: {r.barber?.name}</p>
+                <p>Fecha: {r.date} a las {r.time}</p>
+                <button type="button" className="btn-small btn-cancel-sm" style={{ marginTop: '8px' }} onClick={() => handleCancelReservation(r._id)}>Cancelar turno</button>
               </div>
             ))}
           </div>
         )}
         {cancelMsg && <p className="error-text">{cancelMsg}</p>}
-        <button type="button" className="btn-secondary" style={{ marginTop: '16px' }} onClick={() => { setCancelView(null); setCancelMsg(''); }}>Volver al inicio</button>
+        <button type="button" className="btn-confirm" style={{ marginTop: '16px' }} onClick={() => { setCancelView(null); setCancelMsg(''); }}>Reservar un turno</button>
       </div>
     );
   }

@@ -5,6 +5,7 @@ import Barber from '../models/Barber.js';
 import Activity from '../models/Activity.js';
 import Barbershop from '../models/Barbershop.js';
 import { sendPushToClient } from '../utils/pushManager.js';
+import { sendConfirmationEmail } from '../utils/emailManager.js';
 
 // --- BOOKING ---
 
@@ -240,8 +241,21 @@ async function _createReservation({ client, shopSlug, barberId, activityId, addi
   sendPushToClient(client.phone, {
     title: `✅ Turno confirmado — ${shop.name}`,
     body: pushBody,
-    url: `/${shop.slug}/turnos`,
+    url: `/${shop.slug}/turnos?ver=mis-turnos`,
   }).catch((e) => console.warn('[Push] confirmación cliente:', e.message));
+
+  // Email al cliente: confirmación de turno
+  sendConfirmationEmail({
+    to: client.email,
+    clientName: client.name,
+    shopName: shop.name,
+    activity: serviceLabel,
+    barberName: barber.name,
+    date,
+    time,
+    price: priceLabel,
+    shopSlug: shop.slug,
+  }).catch((e) => console.warn('[Email] confirmación cliente:', e.message));
 
   return res.status(201).json({ ok: true, reservation: populated[0], reservations: populated });
 }

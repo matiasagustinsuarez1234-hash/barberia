@@ -147,7 +147,7 @@ export const sendReminder = async (req, res) => {
     const result = await sendPushToClient(client.phone, {
       title: `Recordatorio — ${shop.name}`,
       body: `${activity.title} con ${barber.name} — ${reservation.date} a las ${reservation.time}`,
-      url: shop.slug ? `/${shop.slug}/turnos` : '/',
+      url: shop.slug ? `/${shop.slug}/turnos?ver=mis-turnos` : '/',
     });
 
     if (result === 'no_subscription') {

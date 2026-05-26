@@ -2,13 +2,14 @@ import cron from 'node-cron';
 import Reservation from '../models/Reservation.js';
 import ReminderLog from '../models/ReminderLog.js';
 import { sendPushToClient } from './pushManager.js';
+import { sendReminderEmail } from './emailManager.js';
 
 export async function runReminders() {
   const today = new Date().toISOString().split('T')[0];
   console.log(`[Recordatorios] Buscando turnos pendientes para ${today}...`);
 
   const reservations = await Reservation.find({ date: today, status: 'pending' }).populate([
-    { path: 'client', select: 'name phone' },
+    { path: 'client', select: 'name phone email' },
     { path: 'barber', select: 'name' },
     { path: 'activity', select: 'title' },
     { path: 'shop', select: 'name slug' },
@@ -33,21 +34,35 @@ export async function runReminders() {
   for (let i = 0; i < toSend.length; i++) {
     const r = toSend[i];
 
-    const pushResult = await sendPushToClient(r.client.phone, {
+    const pushPayload = {
       title: `Recordatorio — ${r.shop.name}`,
       body: `Hoy a las ${r.time}: ${r.activity.title} con ${r.barber.name}`,
-      url: `/${r.shop.slug || ''}/turnos`,
-    });
+      url: `/${r.shop.slug || ''}/turnos?ver=mis-turnos`,
+    };
 
-    if (pushResult === 'sent') {
+    const [pushResult, emailResult] = await Promise.all([
+      sendPushToClient(r.client.phone, pushPayload),
+      sendReminderEmail({
+        to: r.client.email,
+        clientName: r.client.name,
+        shopName: r.shop.name,
+        activity: r.activity.title,
+        barberName: r.barber.name,
+        date: r.date,
+        time: r.time,
+        shopSlug: r.shop.slug,
+      }),
+    ]);
+
+    const ok = pushResult === 'sent' || emailResult === 'sent';
+    if (ok) {
       sent++;
-      console.log(`[Recordatorios] (${i + 1}/${toSend.length}) ✓ ${r.client.name}`);
+      const channels = [pushResult === 'sent' && 'push', emailResult === 'sent' && 'email'].filter(Boolean).join('+');
+      console.log(`[Recordatorios] (${i + 1}/${toSend.length}) ✓ ${r.client.name} (${channels})`);
     } else {
-      // no_subscription, expired, error — contar como omitido, no como error
-      skipped;
-      const reason = pushResult === 'no_subscription' ? 'sin suscripción' : pushResult;
+      const reason = `push:${pushResult} email:${emailResult}`;
       console.log(`[Recordatorios] (${i + 1}/${toSend.length}) — ${r.client.name}: ${reason}`);
-      if (pushResult === 'error') {
+      if (pushResult === 'error' || emailResult === 'error') {
         errors++;
         failedList.push({ name: r.client.name, phone: r.client.phone, error: reason });
       }
