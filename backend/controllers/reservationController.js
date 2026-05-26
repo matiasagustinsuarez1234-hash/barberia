@@ -3,6 +3,7 @@ import Client from '../models/Client.js';
 import Barber from '../models/Barber.js';
 import Activity from '../models/Activity.js';
 import { sendPushToClient } from '../utils/pushManager.js';
+import { sendReminderEmail } from '../utils/emailManager.js';
 
 export const getReservations = async (req, res) => {
   try {
@@ -135,7 +136,7 @@ export const sendReminder = async (req, res) => {
   try {
     const { id } = req.params;
     const reservation = await Reservation.findById(id).populate([
-      { path: 'client', select: 'name phone' },
+      { path: 'client', select: 'name phone email' },
       { path: 'barber', select: 'name' },
       { path: 'activity', select: 'title' },
       { path: 'shop', select: 'name slug' },
@@ -144,22 +145,36 @@ export const sendReminder = async (req, res) => {
 
     const { client, barber, activity, shop } = reservation;
 
-    const result = await sendPushToClient(client.phone, {
-      title: `Recordatorio — ${shop.name}`,
-      body: `${activity.title} con ${barber.name} — ${reservation.date} a las ${reservation.time}`,
-      url: shop.slug ? `/${shop.slug}/turnos?ver=mis-turnos` : '/',
-    });
+    const [pushResult, emailResult] = await Promise.all([
+      sendPushToClient(client.phone, {
+        title: `Recordatorio — ${shop.name}`,
+        body: `${activity.title} con ${barber.name} — ${reservation.date} a las ${reservation.time}`,
+        url: shop.slug ? `/${shop.slug}/turnos?ver=mis-turnos` : '/',
+      }),
+      sendReminderEmail({
+        to: client.email,
+        clientName: client.name,
+        shopName: shop.name,
+        activity: activity.title,
+        barberName: barber.name,
+        date: reservation.date,
+        time: reservation.time,
+        shopSlug: shop.slug,
+      }),
+    ]);
 
-    if (result === 'no_subscription') {
-      return res.status(400).json({ ok: false, msg: `${client.name} no tiene notificaciones activadas en su navegador` });
-    }
-    if (result === 'expired') {
-      return res.status(400).json({ ok: false, msg: 'La suscripción del cliente expiró. Debe volver a activar los recordatorios.' });
+    const ok = pushResult === 'sent' || emailResult === 'sent';
+    if (!ok) {
+      const msg = pushResult === 'no_subscription' && emailResult === 'no_email'
+        ? `${client.name} no tiene notificaciones activadas ni email registrado`
+        : 'No se pudo enviar el recordatorio';
+      return res.status(400).json({ ok: false, msg });
     }
 
-    res.json({ ok: true });
+    const channels = [pushResult === 'sent' && 'push', emailResult === 'sent' && 'email'].filter(Boolean).join(' + ');
+    res.json({ ok: true, msg: `Recordatorio enviado por ${channels}` });
   } catch (e) {
-    console.warn('[Push] Error enviando recordatorio manual:', e.message);
+    console.warn('[Reminder] Error enviando recordatorio manual:', e.message);
     res.status(500).json({ ok: false, msg: 'Error enviando recordatorio' });
   }
 };
