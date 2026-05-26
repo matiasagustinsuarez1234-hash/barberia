@@ -3,6 +3,7 @@ import Reservation from '../models/Reservation.js';
 import Subscription from '../models/Subscription.js';
 import ReminderLog from '../models/ReminderLog.js';
 import { send as waSend } from './whatsappManager.js';
+import { sendPushToClient } from './pushManager.js';
 
 // Pausa entre mensajes para no saturar la API de WhatsApp/Twilio
 const DELAY_MS = 2000; // 2 segundos entre cada envío
@@ -16,7 +17,7 @@ export async function runReminders() {
     { path: 'client', select: 'name phone' },
     { path: 'barber', select: 'name' },
     { path: 'activity', select: 'title' },
-    { path: 'shop', select: 'name' },
+    { path: 'shop', select: 'name slug' },
   ]);
 
   if (reservations.length === 0) {
@@ -57,14 +58,34 @@ export async function runReminders() {
       `Hora: ${r.time}\n\n` +
       `Si necesitas cancelar podes hacerlo desde la web. Hasta luego!`;
 
+    let okChannel = false;
+
+    // Canal 1: WhatsApp
     try {
       await waSend(shopId, r.client.phone, msg);
-      sent++;
-      console.log(`[Recordatorios] (${i + 1}/${toSend.length}) ✓ ${r.client.name} (${r.client.phone})`);
+      okChannel = true;
+      console.log(`[Recordatorios] (${i + 1}/${toSend.length}) ✓ WA ${r.client.name}`);
     } catch (e) {
+      console.warn(`[Recordatorios] (${i + 1}/${toSend.length}) ✗ WA ${r.client.phone}: ${e.message}`);
+    }
+
+    // Canal 2: Push notification (siempre se intenta, independiente de WA)
+    const pushPayload = {
+      title: `Recordatorio — ${r.shop.name}`,
+      body: `Hoy a las ${r.time} tenés turno: ${r.activity.title} con ${r.barber.name}`,
+      url: `/${r.shop.slug || ''}/turnos`,
+    };
+    const pushResult = await sendPushToClient(r.client.phone, pushPayload);
+    if (pushResult === 'sent') {
+      okChannel = true;
+      console.log(`[Recordatorios] (${i + 1}/${toSend.length}) ✓ Push ${r.client.name}`);
+    }
+
+    if (okChannel) {
+      sent++;
+    } else {
       errors++;
-      failedList.push({ name: r.client.name, phone: r.client.phone, error: e.message });
-      console.warn(`[Recordatorios] (${i + 1}/${toSend.length}) ✗ ${r.client.phone}: ${e.message}`);
+      failedList.push({ name: r.client.name, phone: r.client.phone, error: 'Sin canal disponible' });
     }
 
     if (i < toSend.length - 1) await sleep(DELAY_MS);

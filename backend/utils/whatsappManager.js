@@ -139,6 +139,10 @@ async function sendViaMeta(phoneNumberId, token, phone, message) {
 
 // Envío: prioridad 1) Meta Business API del shop, 2) Twilio central, 3) whatsapp-web.js central, 4) fallback por shop (legacy)
 export async function send(shopId, phone, message) {
+  if (process.env.WHATSAPP_ENABLED === 'false') {
+    console.log(`[WA] ⚠️  Envío deshabilitado (WHATSAPP_ENABLED=false) → ${phone} | ${message.slice(0, 60)}`);
+    return;
+  }
   const fullMessage = message + NO_REPLY_FOOTER;
   const preview = message.replace(/\n/g, ' ').slice(0, 60);
 

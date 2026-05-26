@@ -3,6 +3,30 @@ import { useParams } from 'react-router-dom';
 import api from '../utils/api';
 import { normalizeArgPhone, normalizeArgPhoneAny } from '../utils/phoneUtils';
 
+// Convierte la clave pública VAPID (base64url) al formato Uint8Array que necesita el browser
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  return new Uint8Array([...rawData].map((c) => c.charCodeAt(0)));
+}
+
+async function subscribeToPush(phone) {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    const { data } = await api.get('/push/vapid-key');
+    const subscription = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(data.publicKey),
+    });
+    await api.post('/push/subscribe', { phone, subscription });
+    console.log('[Push] Suscripción guardada');
+  } catch (e) {
+    console.warn('[Push] No se pudo suscribir:', e.message);
+  }
+}
+
 const MONTHS_ES = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
 const DAYS_ES   = ['DOM','LUN','MAR','MIE','JUE','VIE','SAB'];
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace('/api', '');
@@ -319,6 +343,10 @@ export default function Booking() {
     const resp = await api.post(endpoint, payload);
     setReservations(resp.data.reservations || [resp.data.reservation]);
     setSuccess(true);
+
+    // Suscribir al cliente a push notifications para recordatorios
+    const phone = explicitPhone ?? clientPhone;
+    subscribeToPush(phone);
   };
 
   // --- Flujo cancelación ---
