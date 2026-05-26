@@ -436,21 +436,35 @@ textarea.input-text { resize: vertical; }
 
 // Tag de duración en cada tarjeta de servicio
 .duration-tag {
-  position: absolute;
-  right: 14px;
-  bottom: 12px;
   font-size: 0.72rem;
   color: $gray;
   font-weight: 500;
 }
 
-// Cuando hay precio Y duración, moverlos para no superponerse
-.card-opt .price-tag + .duration-tag,
-.card-opt .duration-tag {
-  bottom: 12px;
-}
-.card-opt .price-tag {
-  top: 14px;
+// Precio + duración apilados en columna a la derecha (sin superposición)
+.card-opt {
+  .price-tag {
+    position: static;
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-align: right;
+  }
+  .duration-tag {
+    display: block;
+    text-align: right;
+    margin-top: 2px;
+  }
+  // Wrapper flotante a la derecha que agrupa precio y duración
+  .price-duration-col {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+  }
 }
 
 // Preview del rango horario seleccionado

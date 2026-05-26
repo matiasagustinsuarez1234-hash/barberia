@@ -589,8 +589,10 @@ export default function Booking() {
                   >
                     <strong>{a.title}</strong>
                     {a.description && <><br /><small>{a.description}</small></>}
-                    <span className="price-tag">${Number(price).toLocaleString('es-AR')}</span>
-                    {a.durationMinutes && <span className="duration-tag">{a.durationMinutes} min</span>}
+                    <div className="price-duration-col">
+                      <span className="price-tag">${Number(price).toLocaleString('es-AR')}</span>
+                      {a.durationMinutes && <span className="duration-tag">{a.durationMinutes} min</span>}
+                    </div>
                   </div>
                 );
               })}

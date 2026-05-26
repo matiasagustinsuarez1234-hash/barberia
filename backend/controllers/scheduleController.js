@@ -1,4 +1,5 @@
 import Schedule from '../models/Schedule.js';
+import Reservation from '../models/Reservation.js';
 
 export const getSchedules = async (req, res) => {
   try {
@@ -63,6 +64,33 @@ export const updateSchedule = async (req, res) => {
 export const deleteSchedule = async (req, res) => {
   try {
     const { id } = req.params;
+    const schedule = await Schedule.findById(id);
+    if (!schedule) {
+      return res.status(404).json({ ok: false, msg: 'Horario no encontrado' });
+    }
+
+    // Verificar turnos pendientes/confirmados futuros en ese día de semana
+    const todayStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const upcoming = await Reservation.find({
+      barber: schedule.barber,
+      status: { $in: ['pending', 'confirmed'] },
+      date: { $gte: todayStr },
+    }).select('date');
+
+    const onSameWeekday = upcoming.filter((r) => {
+      // Parsear la fecha al mediodía para evitar problemas de zona horaria
+      const d = new Date(`${r.date}T12:00:00`);
+      return d.getDay() === schedule.weekday;
+    });
+
+    if (onSameWeekday.length > 0) {
+      const n = onSameWeekday.length;
+      return res.status(400).json({
+        ok: false,
+        msg: `Hay ${n} turno${n !== 1 ? 's' : ''} pendiente${n !== 1 ? 's' : ''} en ese día. Cancelalos antes de eliminar el horario.`,
+      });
+    }
+
     await Schedule.findByIdAndDelete(id);
     res.json({ ok: true, msg: 'Horario eliminado' });
   } catch (error) {
