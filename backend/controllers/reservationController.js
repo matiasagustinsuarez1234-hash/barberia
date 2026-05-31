@@ -2,8 +2,9 @@
 import Client from '../models/Client.js';
 import Barber from '../models/Barber.js';
 import Activity from '../models/Activity.js';
+import Barbershop from '../models/Barbershop.js';
 import { sendPushToClient } from '../utils/pushManager.js';
-import { sendReminderEmail } from '../utils/emailManager.js';
+import { sendReminderEmail, sendConfirmationEmail } from '../utils/emailManager.js';
 
 export const getReservations = async (req, res) => {
   try {
@@ -185,6 +186,21 @@ export const adminBook = async (req, res) => {
     ]);
 
     res.status(201).json({ ok: true, reservation: populated });
+
+    const shopData = await Barbershop.findById(populated.shop || existsBarber.shop).lean();
+    if (shopData && client.email) {
+      sendConfirmationEmail({
+        to: client.email,
+        clientName: client.name,
+        shopName: shopData.name,
+        activity: existsActivity.title,
+        barberName: existsBarber.name,
+        date,
+        time,
+        price: `$${existsActivity.price.toLocaleString('es-AR')}`,
+        shopSlug: shopData.slug,
+      }).catch((e) => console.warn('[Email] confirmación admin-book:', e.message));
+    }
   } catch (error) {
     res.status(500).json({ ok: false, msg: 'Error creando turno' });
   }

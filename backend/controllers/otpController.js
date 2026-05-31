@@ -244,18 +244,6 @@ async function _createReservation({ client, shopSlug, barberId, activityId, addi
     url: `/${shop.slug}/turnos?ver=mis-turnos`,
   }).catch((e) => console.warn('[Push] confirmación cliente:', e.message));
 
-  // Email al cliente: confirmación de turno
-  sendConfirmationEmail({
-    to: client.email,
-    clientName: client.name,
-    shopName: shop.name,
-    activity: serviceLabel,
-    barberName: barber.name,
-    date,
-    time,
-    price: priceLabel,
-    shopSlug: shop.slug,
-  }).catch((e) => console.warn('[Email] confirmación cliente:', e.message));
 
   return res.status(201).json({ ok: true, reservation: populated[0], reservations: populated });
 }
