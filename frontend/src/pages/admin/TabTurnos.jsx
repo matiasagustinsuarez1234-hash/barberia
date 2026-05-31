@@ -88,15 +88,93 @@ function ClientPopup({ res, pos, onClose, onRemind, onCancel, remindingId }) {
   );
 }
 
+// ── Popup para reservar turno desde el admin ──────────────────────────────────
+function AdminBookPopup({ slot, pos, barbers, onClose, onBook }) {
+  const popupRef = useRef(null);
+  const [form, setForm]   = useState({ name: '', phone: '', email: '', activityId: '' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError]   = useState('');
+  const [avail, setAvail]   = useState([]);
+
+  useEffect(() => {
+    api.get('/activities').then((r) => {
+      const all    = r.data.activities || [];
+      const barber = barbers.find((b) => String(b._id) === String(slot.barberId));
+      const ids    = new Set((barber?.activities || []).map(String));
+      const list   = ids.size === 0 ? all : all.filter((a) => ids.has(String(a._id)));
+      setAvail(list);
+      if (list.length === 1) setForm((f) => ({ ...f, activityId: list[0]._id }));
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!popupRef.current) return;
+    const rect = popupRef.current.getBoundingClientRect();
+    const vw   = window.innerWidth;
+    const vh   = window.innerHeight;
+    const el   = popupRef.current;
+    if (rect.right  > vw - 8) el.style.left = `${vw - rect.width - 8}px`;
+    if (rect.bottom > vh - 8) el.style.top  = `${pos.top - rect.height - 8}px`;
+  }, [pos]);
+
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.activityId) { setError('Seleccioná un servicio'); return; }
+    setSaving(true);
+    setError('');
+    try {
+      await onBook({ ...form, barberId: slot.barberId, date: slot.date, time: slot.time });
+      onClose();
+    } catch (err) {
+      setError(err.response?.data?.msg || 'Error al reservar');
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      ref={popupRef}
+      className="admin-book-popup"
+      style={{ top: pos.top, left: pos.left }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button type="button" className="cp-close" onClick={onClose}>✕</button>
+      <div className="abp-title">Reservar turno</div>
+      <div className="abp-meta">{slot.barberName} · {slot.time}</div>
+      <form onSubmit={handleSubmit} className="abp-form">
+        <input className="abp-input" placeholder="Nombre *" value={form.name} onChange={set('name')} required />
+        <input className="abp-input" placeholder="Teléfono *" value={form.phone} onChange={set('phone')} required />
+        <input className="abp-input" placeholder="Email (opcional)" type="email" value={form.email} onChange={set('email')} />
+        <select className="abp-input" value={form.activityId} onChange={set('activityId')} required>
+          <option value="">Servicio *</option>
+          {avail.map((a) => (
+            <option key={a._id} value={a._id}>{a.title}</option>
+          ))}
+        </select>
+        {error && <div className="abp-error">{error}</div>}
+        <button type="submit" className="abp-submit" disabled={saving}>
+          {saving ? 'Guardando…' : '✔ Confirmar turno'}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 // ── Componente principal ──────────────────────────────────────────────────────
 export default function TabTurnos() {
   const [reservations, setReservations] = useState([]);
   const [schedules, setSchedules]       = useState([]);
+  const [barbers, setBarbers]           = useState([]);
+  const [activities, setActivities]     = useState([]);
   const [loading, setLoading]           = useState(true);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [remindingId, setRemindingId]   = useState(null);
   const [popupRes, setPopupRes]         = useState(null);
   const [popupPos, setPopupPos]         = useState({ top: 0, left: 0 });
+  const [bookingSlot, setBookingSlot]   = useState(null);
+  const [bookingPos, setBookingPos]     = useState({ top: 0, left: 0 });
 
   const today   = new Date().toISOString().split('T')[0];
   const isToday = selectedDate === today;
@@ -109,15 +187,22 @@ export default function TabTurnos() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+
+    Promise.all([api.get('/barbers'), api.get('/activities')])
+      .then(([bRes, aRes]) => {
+        setBarbers(bRes.data.barbers || []);
+        setActivities(aRes.data.activities || []);
+      })
+      .catch(() => {});
   }, []);
 
-  // Cerrar popup al hacer click fuera
+  // Cerrar popups al hacer click fuera
   useEffect(() => {
-    if (!popupRes) return;
-    const close = () => setPopupRes(null);
+    if (!popupRes && !bookingSlot) return;
+    const close = () => { setPopupRes(null); setBookingSlot(null); };
     document.addEventListener('click', close);
     return () => document.removeEventListener('click', close);
-  }, [popupRes]);
+  }, [popupRes, bookingSlot]);
 
   const changeStatus = async (id, status, reason) => {
     await api.patch(`/reservations/${id}/status`, { status, reason });
@@ -148,6 +233,24 @@ export default function TabTurnos() {
     const rect = e.currentTarget.getBoundingClientRect();
     setPopupPos({ top: rect.bottom + 6, left: rect.left });
     setPopupRes(r);
+  };
+
+  const handleOpenBookingPopup = (e, sched, slotTime) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    setBookingPos({ top: rect.bottom + 6, left: rect.left });
+    setBookingSlot({
+      barberId:   sched.barber?._id,
+      barberName: sched.barber?.name,
+      date:       selectedDate,
+      time:       slotTime,
+    });
+    setPopupRes(null);
+  };
+
+  const handleAdminBook = async (data) => {
+    const res = await api.post('/reservations/admin-book', data);
+    setReservations((prev) => [res.data.reservation, ...prev]);
   };
 
   const navigate = (delta) => {
@@ -250,7 +353,18 @@ export default function TabTurnos() {
                   return (
                     <div key={slot} className={`mb-slot${past ? ' sg-is-past' : ''}`}>
                       <span className="mb-slot-time">{slot}</span>
-                      {cell.type === 'free' && <span className="mb-slot-free">Disponible</span>}
+                      {cell.type === 'free' && (
+                        past ? (
+                          <span className="mb-slot-free">Disponible</span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn-small btn-add-booking"
+                            onClick={(e) => handleOpenBookingPopup(e, s, slot)}
+                            title="Reservar turno"
+                          >✏️ Disponible</button>
+                        )
+                      )}
                       {cell.type === 'start' && (
                         <div className="mb-slot-info">
                           <span className="mb-slot-client">{cell.r.client?.name}</span>
@@ -298,7 +412,18 @@ export default function TabTurnos() {
                       if (cell.type === 'off')
                         return <td key={s._id} className="sg-off">—</td>;
                       if (cell.type === 'free')
-                        return <td key={s._id} className={`sg-free${past ? ' sg-is-past' : ''}`}>Disponible</td>;
+                        return (
+                          <td key={s._id} className={`sg-free${past ? ' sg-is-past' : ''}`}>
+                            {!past ? (
+                              <button
+                                type="button"
+                                className="btn-add-booking"
+                                onClick={(e) => handleOpenBookingPopup(e, s, slot)}
+                                title="Reservar turno"
+                              >✏️ Disponible</button>
+                            ) : 'Disponible'}
+                          </td>
+                        );
                       if (cell.type === 'cont')
                         return <td key={s._id} className={`sg-cont ${STATUS_CLASS[cell.r.status]}${past ? ' sg-is-past' : ''}`}></td>;
 
@@ -366,6 +491,17 @@ export default function TabTurnos() {
           onRemind={handleRemind}
           onCancel={handleCancelPrompt}
           remindingId={remindingId}
+        />
+      )}
+
+      {/* Popup para reservar turno desde el admin */}
+      {bookingSlot && (
+        <AdminBookPopup
+          slot={bookingSlot}
+          pos={bookingPos}
+          barbers={barbers}
+          onClose={() => setBookingSlot(null)}
+          onBook={handleAdminBook}
         />
       )}
     </div>

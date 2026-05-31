@@ -121,6 +121,75 @@ export const createReservation = async (req, res) => {
   }
 };
 
+export const adminBook = async (req, res) => {
+  try {
+    const { name, phone, email, barberId, activityId, date, time } = req.body;
+    const shop = req.user.shop;
+
+    if (!name?.trim() || !phone?.trim() || !barberId || !activityId || !date || !time) {
+      return res.status(400).json({ ok: false, msg: 'Faltan datos requeridos' });
+    }
+
+    const [existsBarber, existsActivity] = await Promise.all([
+      Barber.findById(barberId),
+      Activity.findById(activityId),
+    ]);
+
+    if (!existsBarber || !existsActivity) {
+      return res.status(400).json({ ok: false, msg: 'Barbero o actividad no encontrados' });
+    }
+
+    let client = await Client.findOne({ phone: phone.trim() });
+    if (!client) {
+      client = new Client({ name: name.trim(), phone: phone.trim(), email: email?.trim() || undefined });
+      await client.save();
+    }
+
+    const existingReservations = await Reservation.find({
+      barber: barberId,
+      date,
+      status: { $ne: 'cancelled' },
+    }).populate('activity', 'durationMinutes');
+
+    const newStart = timeToMinutes(time);
+    const newEnd = newStart + existsActivity.durationMinutes;
+
+    const conflict = existingReservations.some((r) => {
+      const rStart = timeToMinutes(r.time);
+      const rEnd = rStart + (r.activity?.durationMinutes ?? 30);
+      return newStart < rEnd && newEnd > rStart;
+    });
+
+    if (conflict) {
+      return res.status(409).json({ ok: false, msg: 'Ese horario ya está tomado' });
+    }
+
+    const endTime = minutesToTime(newEnd);
+
+    const reservation = new Reservation({
+      shop: shop || existsBarber.shop,
+      barber: barberId,
+      activity: activityId,
+      client: client._id,
+      date,
+      time,
+      endTime,
+      status: 'pending',
+    });
+
+    await reservation.save();
+    const populated = await reservation.populate([
+      { path: 'barber', select: 'name surchargeType surchargeValue' },
+      { path: 'activity', select: 'title price' },
+      { path: 'client', select: 'name phone' },
+    ]);
+
+    res.status(201).json({ ok: true, reservation: populated });
+  } catch (error) {
+    res.status(500).json({ ok: false, msg: 'Error creando turno' });
+  }
+};
+
 function timeToMinutes(time) {
   const [h, m] = time.split(':').map(Number);
   return h * 60 + m;
