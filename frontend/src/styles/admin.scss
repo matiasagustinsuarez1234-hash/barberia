@@ -1224,6 +1224,49 @@
     &:focus { border-color: #1a7a4a; background: #fff; }
   }
 
+  .abp-activities {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 180px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 6px 8px;
+    background: #fafafa;
+  }
+
+  .abp-activities-label {
+    font-size: 0.75rem;
+    color: #888;
+    margin-bottom: 2px;
+  }
+
+  .abp-activity-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 3px 2px;
+    border-radius: 5px;
+
+    &:hover { background: #f0f0f0; }
+
+    input[type="checkbox"] { cursor: pointer; flex-shrink: 0; }
+  }
+
+  .abp-activity-name {
+    flex: 1;
+    font-size: 0.83rem;
+    color: #222;
+  }
+
+  .abp-activity-price {
+    font-size: 0.78rem;
+    color: #888;
+    white-space: nowrap;
+  }
+
   .abp-error {
     font-size: 0.78rem;
     color: #b00020;

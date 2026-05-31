@@ -124,7 +124,7 @@ export const createReservation = async (req, res) => {
 
 export const adminBook = async (req, res) => {
   try {
-    const { name, phone, email, barberId, activityId, date, time } = req.body;
+    const { name, phone, email, barberId, activityId, additionalActivityIds = [], date, time } = req.body;
     const shop = req.user.shop;
 
     if (!name?.trim() || !phone?.trim() || !barberId || !activityId || !date || !time) {
@@ -140,6 +140,13 @@ export const adminBook = async (req, res) => {
       return res.status(400).json({ ok: false, msg: 'Barbero o actividad no encontrados' });
     }
 
+    const extraActivities = additionalActivityIds.length
+      ? await Activity.find({ _id: { $in: additionalActivityIds } })
+      : [];
+
+    const totalDuration = existsActivity.durationMinutes +
+      extraActivities.reduce((sum, a) => sum + (a.durationMinutes || 0), 0);
+
     let client = await Client.findOne({ phone: phone.trim() });
     if (!client) {
       client = new Client({ name: name.trim(), phone: phone.trim(), email: email?.trim() || undefined });
@@ -153,11 +160,11 @@ export const adminBook = async (req, res) => {
     }).populate('activity', 'durationMinutes');
 
     const newStart = timeToMinutes(time);
-    const newEnd = newStart + existsActivity.durationMinutes;
+    const newEnd   = newStart + totalDuration;
 
     const conflict = existingReservations.some((r) => {
       const rStart = timeToMinutes(r.time);
-      const rEnd = rStart + (r.activity?.durationMinutes ?? 30);
+      const rEnd   = r.endTime ? timeToMinutes(r.endTime) : rStart + (r.activity?.durationMinutes ?? 30);
       return newStart < rEnd && newEnd > rStart;
     });
 
@@ -171,6 +178,7 @@ export const adminBook = async (req, res) => {
       shop: shop || existsBarber.shop,
       barber: barberId,
       activity: activityId,
+      additionalActivities: additionalActivityIds,
       client: client._id,
       date,
       time,
@@ -189,15 +197,18 @@ export const adminBook = async (req, res) => {
 
     const shopData = await Barbershop.findById(populated.shop || existsBarber.shop).lean();
     if (shopData && client.email) {
+      const allActivities = [existsActivity, ...extraActivities];
+      const serviceLabel  = allActivities.map((a) => a.title).join(' + ');
+      const totalPrice    = allActivities.reduce((sum, a) => sum + (a.price || 0), 0);
       sendConfirmationEmail({
         to: client.email,
         clientName: client.name,
         shopName: shopData.name,
-        activity: existsActivity.title,
+        activity: serviceLabel,
         barberName: existsBarber.name,
         date,
         time,
-        price: `$${existsActivity.price.toLocaleString('es-AR')}`,
+        price: `$${totalPrice.toLocaleString('es-AR')}`,
         shopSlug: shopData.slug,
       }).catch((e) => console.warn('[Email] confirmación admin-book:', e.message));
     }

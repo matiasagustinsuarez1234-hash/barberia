@@ -90,20 +90,19 @@ function ClientPopup({ res, pos, onClose, onRemind, onCancel, remindingId }) {
 
 // ── Popup para reservar turno desde el admin ──────────────────────────────────
 function AdminBookPopup({ slot, pos, barbers, onClose, onBook }) {
-  const popupRef = useRef(null);
-  const [form, setForm]   = useState({ name: '', phone: '', email: '', activityId: '' });
-  const [saving, setSaving] = useState(false);
-  const [error, setError]   = useState('');
-  const [avail, setAvail]   = useState([]);
+  const popupRef  = useRef(null);
+  const [form, setForm]       = useState({ name: '', phone: '', email: '' });
+  const [selected, setSelected] = useState([]);
+  const [saving, setSaving]   = useState(false);
+  const [error, setError]     = useState('');
+  const [avail, setAvail]     = useState([]);
 
   useEffect(() => {
     api.get('/activities').then((r) => {
       const all    = r.data.activities || [];
       const barber = barbers.find((b) => String(b._id) === String(slot.barberId));
       const ids    = new Set((barber?.activities || []).map(String));
-      const list   = ids.size === 0 ? all : all.filter((a) => ids.has(String(a._id)));
-      setAvail(list);
-      if (list.length === 1) setForm((f) => ({ ...f, activityId: list[0]._id }));
+      setAvail(ids.size === 0 ? all : all.filter((a) => ids.has(String(a._id))));
     }).catch(() => {});
   }, []);
 
@@ -117,15 +116,19 @@ function AdminBookPopup({ slot, pos, barbers, onClose, onBook }) {
     if (rect.bottom > vh - 8) el.style.top  = `${pos.top - rect.height - 8}px`;
   }, [pos]);
 
+  const toggleActivity = (id) =>
+    setSelected((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.activityId) { setError('Seleccioná un servicio'); return; }
+    if (selected.length === 0) { setError('Seleccioná al menos un servicio'); return; }
     setSaving(true);
     setError('');
     try {
-      await onBook({ ...form, barberId: slot.barberId, date: slot.date, time: slot.time });
+      const [activityId, ...additionalActivityIds] = selected;
+      await onBook({ ...form, activityId, additionalActivityIds, barberId: slot.barberId, date: slot.date, time: slot.time });
       onClose();
     } catch (err) {
       setError(err.response?.data?.msg || 'Error al reservar');
@@ -147,12 +150,20 @@ function AdminBookPopup({ slot, pos, barbers, onClose, onBook }) {
         <input className="abp-input" placeholder="Nombre *" value={form.name} onChange={set('name')} required />
         <input className="abp-input" placeholder="Teléfono *" value={form.phone} onChange={set('phone')} required />
         <input className="abp-input" placeholder="Email (opcional)" type="email" value={form.email} onChange={set('email')} />
-        <select className="abp-input" value={form.activityId} onChange={set('activityId')} required>
-          <option value="">Servicio *</option>
+        <div className="abp-activities">
+          <div className="abp-activities-label">Servicios *</div>
           {avail.map((a) => (
-            <option key={a._id} value={a._id}>{a.title}</option>
+            <label key={a._id} className="abp-activity-item">
+              <input
+                type="checkbox"
+                checked={selected.includes(a._id)}
+                onChange={() => toggleActivity(a._id)}
+              />
+              <span className="abp-activity-name">{a.title}</span>
+              {a.price > 0 && <span className="abp-activity-price">${a.price.toLocaleString('es-AR')}</span>}
+            </label>
           ))}
-        </select>
+        </div>
         {error && <div className="abp-error">{error}</div>}
         <button type="submit" className="abp-submit" disabled={saving}>
           {saving ? 'Guardando…' : '✔ Confirmar turno'}
