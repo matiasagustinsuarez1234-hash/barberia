@@ -8,9 +8,16 @@ router.use(validateJWT);
 
 const shopUpload = upload.fields([{ name: 'image', maxCount: 1 }, { name: 'logo', maxCount: 1 }]);
 
+function handleShopUpload(req, res, next) {
+  shopUpload(req, res, (err) => {
+    if (err) return res.status(400).json({ ok: false, msg: err.message });
+    next();
+  });
+}
+
 router.get('/', getShops);
-router.post('/', shopUpload, createShop);
-router.put('/:id', shopUpload, updateShop);
+router.post('/', handleShopUpload, createShop);
+router.put('/:id', handleShopUpload, updateShop);
 router.delete('/:id', deleteShop);
 router.patch('/:id/payment', togglePayment);
 router.patch('/:id/whatsapp-number', updateWhatsappNumber);
