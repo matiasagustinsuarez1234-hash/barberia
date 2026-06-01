@@ -108,13 +108,14 @@ function AdminBookPopup({ slot, pos, barbers, onClose, onBook }) {
 
   useEffect(() => {
     if (!popupRef.current) return;
-    const rect = popupRef.current.getBoundingClientRect();
+    const el   = popupRef.current;
+    const rect = el.getBoundingClientRect();
     const vw   = window.innerWidth;
     const vh   = window.innerHeight;
-    const el   = popupRef.current;
-    if (rect.right  > vw - 8) el.style.left = `${vw - rect.width - 8}px`;
-    if (rect.bottom > vh - 8) el.style.top  = `${pos.top - rect.height - 8}px`;
-  }, [pos]);
+    if (rect.right  > vw - 8) el.style.left = `${Math.max(8, vw - rect.width - 8)}px`;
+    if (rect.bottom > vh - 8) el.style.top  = `${Math.max(8, pos.top - rect.height - 14)}px`;
+    if (rect.top < 8)         el.style.top  = '8px';
+  }, [pos, avail]);
 
   const toggleActivity = (id) =>
     setSelected((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
