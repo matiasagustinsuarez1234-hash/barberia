@@ -14,8 +14,8 @@ export const createPlan = async (req, res) => {
     if (req.role !== 'superadmin') {
       return res.status(403).json({ ok: false, msg: 'Solo superadmin puede crear planes' });
     }
-    const { name, description, price, maxBarbers, includesReminders } = req.body;
-    const plan = new Plan({ name, description, price, maxBarbers, includesReminders });
+    const { name, description, price, maxBarbers, includesReminders, includesEmailNotifications } = req.body;
+    const plan = new Plan({ name, description, price, maxBarbers, includesReminders, includesEmailNotifications: includesEmailNotifications !== false });
     await plan.save();
     res.status(201).json({ ok: true, plan });
   } catch {

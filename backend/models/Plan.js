@@ -6,6 +6,7 @@ const PlanSchema = new mongoose.Schema({
   price: { type: Number, required: true },
   maxBarbers: { type: Number, required: true },
   includesReminders: { type: Boolean, default: false },
+  includesEmailNotifications: { type: Boolean, default: true },
   active: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },
 });

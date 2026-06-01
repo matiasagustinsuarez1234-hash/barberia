@@ -3,7 +3,7 @@ import api from '../../utils/api';
 
 export default function TabPlanes() {
   const [plans, setPlans] = useState([]);
-  const emptyForm = { name: '', description: '', price: '', maxBarbers: 1, includesReminders: false };
+  const emptyForm = { name: '', description: '', price: '', maxBarbers: 1, includesReminders: false, includesEmailNotifications: true };
   const [form, setForm] = useState(emptyForm);
   const [editing, setEditing] = useState(null);
   const [msg, setMsg] = useState('');
@@ -36,12 +36,12 @@ export default function TabPlanes() {
 
   const editPlan = (p) => {
     setEditing(p._id);
-    setForm({ name: p.name, description: p.description || '', price: p.price, maxBarbers: p.maxBarbers, includesReminders: p.includesReminders });
+    setForm({ name: p.name, description: p.description || '', price: p.price, maxBarbers: p.maxBarbers, includesReminders: p.includesReminders, includesEmailNotifications: p.includesEmailNotifications !== false });
     setMsg('');
   };
 
   const deletePlan = async (id) => {
-    if (!confirm('Eliminar plan? Las barberias con este plan quedarán sin plan asignado.')) return;
+    if (!confirm('Eliminar plan? Los negocios con este plan quedarán sin plan asignado.')) return;
     await api.delete(`/plans/${id}`);
     load();
   };
@@ -54,12 +54,16 @@ export default function TabPlanes() {
         <input name="description" placeholder="Descripcion (opcional)" value={form.description} onChange={handleChange} />
         <input name="price" type="number" min="0" placeholder="Precio mensual (ARS) *" value={form.price} onChange={handleChange} required />
         <div className="field-row">
-          <label>Max. barberos</label>
+          <label>Max. Profesionales</label>
           <input name="maxBarbers" type="number" min="1" value={form.maxBarbers} onChange={handleChange} required style={{ width: '80px' }} />
         </div>
         <label className="checkbox-label">
           <input name="includesReminders" type="checkbox" checked={form.includesReminders} onChange={handleChange} />
           Incluye recordatorios por WhatsApp
+        </label>
+        <label className="checkbox-label">
+          <input name="includesEmailNotifications" type="checkbox" checked={form.includesEmailNotifications} onChange={handleChange} />
+          Incluye notificaciones por email (confirmación + recordatorios)
         </label>
         <div className="form-actions">
           <button type="submit" className="btn-confirm">{editing ? 'Guardar Cambios' : 'Crear Plan'}</button>
@@ -75,8 +79,9 @@ export default function TabPlanes() {
             <div>
               <strong>{p.name}</strong>
               <span className="tag-list">${p.price.toLocaleString('es-AR')}/mes</span>
-              <span className="tag-list">Hasta {p.maxBarbers} barbero{p.maxBarbers !== 1 ? 's' : ''}</span>
-              {p.includesReminders && <span className="tag-list plan-tag">Con recordatorios</span>}
+              <span className="tag-list">Hasta {p.maxBarbers} profesional{p.maxBarbers !== 1 ? 'es' : ''}</span>
+              {p.includesReminders && <span className="tag-list plan-tag">Con recordatorios WA</span>}
+              {p.includesEmailNotifications !== false && <span className="tag-list plan-tag">Con emails</span>}
               {p.description && <span className="tag-list">{p.description}</span>}
             </div>
             <div className="item-actions">

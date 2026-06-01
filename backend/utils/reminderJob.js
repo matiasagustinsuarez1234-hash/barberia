@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import Reservation from '../models/Reservation.js';
 import ReminderLog from '../models/ReminderLog.js';
+import Subscription from '../models/Subscription.js';
 import { sendPushToClient } from './pushManager.js';
 import { sendReminderEmail } from './emailManager.js';
 
@@ -27,12 +28,21 @@ export async function runReminders() {
 
   console.log(`[Recordatorios] ${toSend.length} a enviar, ${skipped} omitidos (demo).`);
 
+  // Construir mapa shopId → emailHabilitado según el plan activo
+  const shopIds = [...new Set(toSend.map((r) => r.shop._id.toString()))];
+  const subscriptions = await Subscription.find({ shop: { $in: shopIds } }).populate('plan', 'includesEmailNotifications');
+  const emailEnabledByShop = new Map();
+  for (const sub of subscriptions) {
+    emailEnabledByShop.set(sub.shop.toString(), sub.plan?.includesEmailNotifications !== false);
+  }
+
   let sent = 0;
   let errors = 0;
   const failedList = [];
 
   for (let i = 0; i < toSend.length; i++) {
     const r = toSend[i];
+    const shopEmailEnabled = emailEnabledByShop.get(r.shop._id.toString()) ?? true;
 
     const pushPayload = {
       title: `Recordatorio — ${r.shop.name}`,
@@ -42,16 +52,18 @@ export async function runReminders() {
 
     const [pushResult, emailResult] = await Promise.all([
       sendPushToClient(r.client.phone, pushPayload),
-      sendReminderEmail({
-        to: r.client.email,
-        clientName: r.client.name,
-        shopName: r.shop.name,
-        activity: r.activity.title,
-        barberName: r.barber.name,
-        date: r.date,
-        time: r.time,
-        shopSlug: r.shop.slug,
-      }),
+      shopEmailEnabled
+        ? sendReminderEmail({
+            to: r.client.email,
+            clientName: r.client.name,
+            shopName: r.shop.name,
+            activity: r.activity.title,
+            barberName: r.barber.name,
+            date: r.date,
+            time: r.time,
+            shopSlug: r.shop.slug,
+          })
+        : Promise.resolve('no_email'),
     ]);
 
     const ok = pushResult === 'sent' || emailResult === 'sent';
@@ -76,9 +88,6 @@ export async function runReminders() {
 }
 
 export function startReminderJob() {
-  cron.schedule('0 8 * * *', () => {
-    runReminders().catch((e) => console.error('[Recordatorios] Error inesperado:', e.message));
-  }, { timezone: 'America/Argentina/Buenos_Aires' });
-
-  console.log('[Recordatorios] Cron de recordatorios registrado (8:00 AM Argentina).');
+  // Cron automático deshabilitado — los avisos se envían manualmente desde el panel (TabTurnos)
+  console.log('[Recordatorios] Cron automático desactivado. Usar "Avisar a todos" desde el panel.');
 }

@@ -3,6 +3,7 @@ import Client from '../models/Client.js';
 import Barber from '../models/Barber.js';
 import Activity from '../models/Activity.js';
 import Barbershop from '../models/Barbershop.js';
+import Subscription from '../models/Subscription.js';
 import { sendPushToClient } from '../utils/pushManager.js';
 import { sendReminderEmail, sendConfirmationEmail } from '../utils/emailManager.js';
 
@@ -197,20 +198,24 @@ export const adminBook = async (req, res) => {
 
     const shopData = await Barbershop.findById(populated.shop || existsBarber.shop).lean();
     if (shopData && client.email) {
-      const allActivities = [existsActivity, ...extraActivities];
-      const serviceLabel  = allActivities.map((a) => a.title).join(' + ');
-      const totalPrice    = allActivities.reduce((sum, a) => sum + (a.price || 0), 0);
-      sendConfirmationEmail({
-        to: client.email,
-        clientName: client.name,
-        shopName: shopData.name,
-        activity: serviceLabel,
-        barberName: existsBarber.name,
-        date,
-        time,
-        price: `$${totalPrice.toLocaleString('es-AR')}`,
-        shopSlug: shopData.slug,
-      }).catch((e) => console.warn('[Email] confirmación admin-book:', e.message));
+      const sub = await Subscription.findOne({ shop: shopData._id }).populate('plan', 'includesEmailNotifications');
+      const emailEnabled = sub?.plan?.includesEmailNotifications !== false;
+      if (emailEnabled) {
+        const allActivities = [existsActivity, ...extraActivities];
+        const serviceLabel  = allActivities.map((a) => a.title).join(' + ');
+        const totalPrice    = allActivities.reduce((sum, a) => sum + (a.price || 0), 0);
+        sendConfirmationEmail({
+          to: client.email,
+          clientName: client.name,
+          shopName: shopData.name,
+          activity: serviceLabel,
+          barberName: existsBarber.name,
+          date,
+          time,
+          price: `$${totalPrice.toLocaleString('es-AR')}`,
+          shopSlug: shopData.slug,
+        }).catch((e) => console.warn('[Email] confirmación admin-book:', e.message));
+      }
     }
   } catch (error) {
     res.status(500).json({ ok: false, msg: 'Error creando turno' });
@@ -241,22 +246,27 @@ export const sendReminder = async (req, res) => {
 
     const { client, barber, activity, shop } = reservation;
 
+    const sub = await Subscription.findOne({ shop: shop._id }).populate('plan', 'includesEmailNotifications');
+    const emailEnabled = sub?.plan?.includesEmailNotifications !== false;
+
     const [pushResult, emailResult] = await Promise.all([
       sendPushToClient(client.phone, {
         title: `Recordatorio — ${shop.name}`,
         body: `${activity.title} con ${barber.name} — ${reservation.date} a las ${reservation.time}`,
         url: shop.slug ? `/${shop.slug}/turnos?ver=mis-turnos` : '/',
       }),
-      sendReminderEmail({
-        to: client.email,
-        clientName: client.name,
-        shopName: shop.name,
-        activity: activity.title,
-        barberName: barber.name,
-        date: reservation.date,
-        time: reservation.time,
-        shopSlug: shop.slug,
-      }),
+      emailEnabled
+        ? sendReminderEmail({
+            to: client.email,
+            clientName: client.name,
+            shopName: shop.name,
+            activity: activity.title,
+            barberName: barber.name,
+            date: reservation.date,
+            time: reservation.time,
+            shopSlug: shop.slug,
+          })
+        : Promise.resolve('no_email'),
     ]);
 
     const ok = pushResult === 'sent' || emailResult === 'sent';
@@ -272,6 +282,64 @@ export const sendReminder = async (req, res) => {
   } catch (e) {
     console.warn('[Reminder] Error enviando recordatorio manual:', e.message);
     res.status(500).json({ ok: false, msg: 'Error enviando recordatorio' });
+  }
+};
+
+export const remindDay = async (req, res) => {
+  try {
+    const { date, barberId } = req.body;
+    if (!date) return res.status(400).json({ ok: false, msg: 'Fecha requerida' });
+
+    const filter = { date, status: 'pending', notes: { $ne: '[TEST]' } };
+    if (req.role !== 'superadmin') filter.shop = req.user.shop;
+    if (barberId) filter.barber = barberId;
+
+    const reservations = await Reservation.find(filter).populate([
+      { path: 'client', select: 'name phone email' },
+      { path: 'barber', select: 'name' },
+      { path: 'activity', select: 'title' },
+      { path: 'shop', select: 'name slug' },
+    ]);
+
+    if (reservations.length === 0) {
+      return res.json({ ok: true, sent: 0, errors: 0, msg: 'No hay turnos pendientes para avisar' });
+    }
+
+    const shopIds = [...new Set(reservations.map((r) => r.shop._id.toString()))];
+    const subs = await Subscription.find({ shop: { $in: shopIds } }).populate('plan', 'includesEmailNotifications');
+    const emailEnabledByShop = new Map(subs.map((s) => [s.shop.toString(), s.plan?.includesEmailNotifications !== false]));
+
+    let sent = 0;
+    let errors = 0;
+
+    for (const r of reservations) {
+      const shopEmailEnabled = emailEnabledByShop.get(r.shop._id.toString()) ?? true;
+      const [pushResult, emailResult] = await Promise.all([
+        sendPushToClient(r.client.phone, {
+          title: `Recordatorio — ${r.shop.name}`,
+          body: `Hoy a las ${r.time}: ${r.activity.title} con ${r.barber.name}`,
+          url: `/${r.shop.slug || ''}/turnos?ver=mis-turnos`,
+        }),
+        shopEmailEnabled
+          ? sendReminderEmail({
+              to: r.client.email, clientName: r.client.name, shopName: r.shop.name,
+              activity: r.activity.title, barberName: r.barber.name,
+              date: r.date, time: r.time, shopSlug: r.shop.slug,
+            })
+          : Promise.resolve('no_email'),
+      ]);
+      if (pushResult === 'sent' || emailResult === 'sent') sent++;
+      else if (pushResult === 'error' || emailResult === 'error') errors++;
+    }
+
+    const msg = sent > 0
+      ? `Avisos enviados a ${sent} cliente${sent !== 1 ? 's' : ''}${errors > 0 ? ` · ${errors} con error` : ''}`
+      : `Sin canales disponibles (${reservations.length} turnos sin push ni email)`;
+
+    res.json({ ok: true, sent, errors, total: reservations.length, msg });
+  } catch (e) {
+    console.error('[remindDay]', e.message);
+    res.status(500).json({ ok: false, msg: 'Error enviando avisos' });
   }
 };
 

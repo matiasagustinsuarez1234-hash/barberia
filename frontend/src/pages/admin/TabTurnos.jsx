@@ -183,6 +183,9 @@ export default function TabTurnos() {
   const [loading, setLoading]           = useState(true);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [remindingId, setRemindingId]   = useState(null);
+  const [remindingDay, setRemindingDay] = useState(false);
+  const [remindingBarber, setRemindingBarber] = useState(null);
+  const [remindDayMsg, setRemindDayMsg] = useState('');
   const [popupRes, setPopupRes]         = useState(null);
   const [popupPos, setPopupPos]         = useState({ top: 0, left: 0 });
   const [bookingSlot, setBookingSlot]   = useState(null);
@@ -265,6 +268,23 @@ export default function TabTurnos() {
     setReservations((prev) => [res.data.reservation, ...prev]);
   };
 
+  const handleRemindDay = async (barberId = null) => {
+    setRemindDayMsg('');
+    if (barberId) setRemindingBarber(barberId);
+    else setRemindingDay(true);
+    try {
+      const body = { date: selectedDate };
+      if (barberId) body.barberId = barberId;
+      const r = await api.post('/reservations/remind-day', body);
+      setRemindDayMsg(r.data.msg);
+    } catch (err) {
+      setRemindDayMsg(err.response?.data?.msg || 'Error enviando avisos');
+    } finally {
+      if (barberId) setRemindingBarber(null);
+      else setRemindingDay(false);
+    }
+  };
+
   const navigate = (delta) => {
     const next = addDays(selectedDate, delta);
     if (next < today) return;
@@ -281,6 +301,8 @@ export default function TabTurnos() {
     const maxEnd   = Math.max(...todaySchedules.map((s) => timeToMin(s.endTime)));
     for (let t = minStart; t < maxEnd; t += 30) slots.push(minToTime(t));
   }
+
+  const pendingToday = reservations.filter((r) => r.date === selectedDate && r.status === 'pending');
 
   const resByBarber = {};
   reservations
@@ -342,6 +364,24 @@ export default function TabTurnos() {
         )}
       </div>
 
+      {/* Botón avisar + mensaje resultado */}
+      {pendingToday.length > 0 && (
+        <div className="remind-day-bar">
+          <button
+            type="button"
+            className="btn-remind-all"
+            onClick={() => handleRemindDay()}
+            disabled={remindingDay || remindingBarber !== null}
+          >
+            {remindingDay ? 'Enviando…' : `🔔 Avisar a todos (${pendingToday.length})`}
+          </button>
+          {remindDayMsg && <span className="remind-day-msg">{remindDayMsg}</span>}
+        </div>
+      )}
+      {!pendingToday.length && remindDayMsg && (
+        <p className="remind-day-msg">{remindDayMsg}</p>
+      )}
+
       {/* ── Grilla ── */}
       {todaySchedules.length === 0 ? (
         <p className="empty-msg">No hay horarios configurados para este día.</p>
@@ -357,7 +397,18 @@ export default function TabTurnos() {
             });
             return (
               <div key={s._id} className="mb-barber-section">
-                <div className="mb-barber-header">{s.barber?.name || '—'}</div>
+                <div className="mb-barber-header">
+                  <span>{s.barber?.name || '—'}</span>
+                  {(resByBarber[bid] || []).some((r) => r.status === 'pending') && (
+                    <button
+                      type="button"
+                      className="btn-remind-barber"
+                      title="Avisar clientes de este profesional"
+                      onClick={() => handleRemindDay(s.barber?._id)}
+                      disabled={remindingBarber === s.barber?._id || remindingDay}
+                    >{remindingBarber === s.barber?._id ? '…' : '🔔'}</button>
+                  )}
+                </div>
                 {barberSlots.map((slot) => {
                   const cell = getCell(bid, slot, s);
                   const past = isToday && isPastSlot(slot);
@@ -408,7 +459,18 @@ export default function TabTurnos() {
               <tr>
                 <th className="th-time">Horario</th>
                 {todaySchedules.map((s) => (
-                  <th key={s._id}>{s.barber?.name || '—'}</th>
+                  <th key={s._id}>
+                    <span>{s.barber?.name || '—'}</span>
+                    {(resByBarber[s.barber?._id] || []).some((r) => r.status === 'pending') && (
+                      <button
+                        type="button"
+                        className="btn-remind-barber"
+                        title="Avisar clientes de este profesional"
+                        onClick={() => handleRemindDay(s.barber?._id)}
+                        disabled={remindingBarber === s.barber?._id || remindingDay}
+                      >{remindingBarber === s.barber?._id ? '…' : '🔔'}</button>
+                    )}
+                  </th>
                 ))}
               </tr>
             </thead>
