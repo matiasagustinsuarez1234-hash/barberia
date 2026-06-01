@@ -73,13 +73,19 @@ export const sendCancelOtp = async (req, res) => {
 };
 
 export const verifyAndGetReservations = async (req, res) => {
-  // Sin OTP: devuelve los turnos directamente por teléfono
+  // Sin OTP: devuelve los turnos por teléfono (+email si el cliente lo tiene registrado)
   try {
-    const { phone, shopSlug } = req.body;
+    const { phone, shopSlug, email } = req.body;
     if (!phone) return res.status(400).json({ ok: false, msg: 'Faltan datos' });
 
     const client = await Client.findOne({ phone });
     if (!client) return res.status(404).json({ ok: false, msg: 'Cliente no encontrado' });
+
+    if (client.email && email) {
+      if (client.email.toLowerCase().trim() !== email.toLowerCase().trim()) {
+        return res.status(400).json({ ok: false, msg: 'El email no coincide con el registrado' });
+      }
+    }
 
     const shop = shopSlug ? await Barbershop.findOne({ slug: shopSlug.toLowerCase() }) : null;
     const filter = { client: client._id, status: { $ne: 'cancelled' } };

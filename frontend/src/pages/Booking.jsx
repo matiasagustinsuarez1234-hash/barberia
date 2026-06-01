@@ -126,6 +126,7 @@ export default function Booking() {
   // Flujo de cancelación
   const [cancelView, setCancelView] = useState(null); // null | 'phone' | 'list'
   const [cancelPhone, setCancelPhone] = useState('');
+  const [cancelEmail, setCancelEmail] = useState('');
   const [cancelReservations, setCancelReservations] = useState([]);
   const [cancelMsg, setCancelMsg] = useState('');
   const [cancelLoading, setCancelLoading] = useState(false);
@@ -338,7 +339,7 @@ export default function Booking() {
     if (error) return setCancelMsg(error);
     setCancelLoading(true);
     try {
-      const res = await api.post('/otp/verify-cancel', { phone, shopSlug });
+      const res = await api.post('/otp/verify-cancel', { phone, email: cancelEmail.trim(), shopSlug });
       setCancelPhone(phone);
       setCancelReservations(res.data.reservations);
       setCancelView('list');
@@ -442,19 +443,27 @@ export default function Booking() {
         {shopLogo && <img src={shopLogo} alt={shopName} className="shop-logo" />}
         <h1>{shopName}</h1>
         <p className="subtitle">{fromPush ? '📅 Tus próximos turnos' : 'Cancelar turno'}</p>
-        <p className="otp-info">Ingresá el celular con el que registraste tu turno.</p>
+        <p className="otp-info">Ingresá el celular y el email con el que registraste tu turno.</p>
         <form onSubmit={handleCancelPhoneSubmit}>
           <input
             className="input-text"
             type="tel"
-            placeholder="Ej: 1161234567"
+            placeholder="Celular — Ej: 1161234567"
             value={cancelPhone}
             onChange={(e) => setCancelPhone(e.target.value)}
             required
           />
+          <input
+            className="input-text"
+            type="email"
+            placeholder="Email (si lo registraste)"
+            value={cancelEmail}
+            onChange={(e) => setCancelEmail(e.target.value)}
+            style={{ marginTop: '10px' }}
+          />
           {cancelMsg && <p className="error-text">{cancelMsg}</p>}
           <div className="form-actions-booking">
-            {!fromPush && <button type="button" className="btn-secondary" onClick={() => { setCancelView(null); setCancelMsg(''); setCancelPhone(''); }}>Volver</button>}
+            {!fromPush && <button type="button" className="btn-secondary" onClick={() => { setCancelView(null); setCancelMsg(''); setCancelPhone(''); setCancelEmail(''); }}>Volver</button>}
             <button type="submit" className="btn-confirm" disabled={cancelLoading}>{cancelLoading ? 'Buscando...' : 'Ver mis turnos'}</button>
           </div>
         </form>
@@ -705,9 +714,14 @@ export default function Booking() {
         <button className="btn-confirm" type="button" onClick={goToClientStep}>
           Continuar
         </button>
-        <button className="btn-secondary" type="button" style={{ marginTop: '12px' }} onClick={() => { setCancelView('phone'); setCancelMsg(''); }}>
-          Cancelar un turno existente
-        </button>
+        <div className="form-actions-booking" style={{ marginTop: '12px' }}>
+          <button className="btn-secondary" type="button" onClick={() => { setCancelView('phone'); setCancelMsg(''); setCancelEmail(''); }}>
+            Ver mis turnos
+          </button>
+          <button className="btn-secondary" type="button" onClick={() => { setCancelView('phone'); setCancelMsg(''); setCancelEmail(''); }}>
+            Cancelar un turno existente
+          </button>
+        </div>
       </div>
     );
   }
