@@ -86,6 +86,7 @@ export default function Booking() {
   const [shopName, setShopName] = useState('');
   const [shopLogo, setShopLogo] = useState('');
   const [shopAreaCode, setShopAreaCode] = useState('11');
+  const [shopAllowsGroup, setShopAllowsGroup] = useState(false);
   const [shopError, setShopError] = useState('');
 
   const [activities, setActivities] = useState([]);
@@ -138,6 +139,7 @@ export default function Booking() {
         setShopId(r.data.shop._id);
         setShopName(r.data.shop.name);
         setShopAreaCode(r.data.shop.areaCode || '11');
+        setShopAllowsGroup(r.data.shop.allowGroupBooking === true);
         const rawLogo = r.data.shop.logo || r.data.shop.image || '';
         setShopLogo(rawLogo ? `${API_BASE}${rawLogo}` : '');
       })
@@ -521,8 +523,10 @@ export default function Booking() {
           </button>
           <button
             type="button"
-            className={`booking-type-btn${isGroup ? ' active' : ''}`}
-            onClick={() => { setIsGroup(true); setSelectedTime(''); }}
+            className={`booking-type-btn${isGroup ? ' active' : ''}${!shopAllowsGroup ? ' disabled' : ''}`}
+            onClick={() => { if (shopAllowsGroup) { setIsGroup(true); setSelectedTime(''); } }}
+            disabled={!shopAllowsGroup}
+            title={!shopAllowsGroup ? 'Este negocio no acepta reservas en grupo' : undefined}
           >
             Grupo
           </button>

@@ -16,6 +16,7 @@ const BarbershopSchema = new mongoose.Schema({
   showWhatsappBusinessTab: { type: Boolean, default: false },
   notifyAdminOnBooking: { type: Boolean, default: true },
   notifyClientOnBooking: { type: Boolean, default: true },
+  allowGroupBooking: { type: Boolean, default: false },
   metaWaPhoneNumberId: { type: String },
   metaWaToken: { type: String },
   createdAt: { type: Date, default: Date.now },

@@ -20,6 +20,11 @@ export default function TabConfig() {
   const [notifMsg, setNotifMsg]         = useState('');
   const [notifLoading, setNotifLoading] = useState(false);
 
+  // Turnos grupales
+  const [allowGroup, setAllowGroup]     = useState(false);
+  const [groupMsg, setGroupMsg]         = useState('');
+  const [groupLoading, setGroupLoading] = useState(false);
+
   // Logo
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
@@ -40,6 +45,7 @@ export default function TabConfig() {
         setWaNumber(s?.whatsappNumber ?? '');
         setNotifyAdmin(s?.notifyAdminOnBooking !== false);
         setNotifyClient(s?.notifyClientOnBooking !== false);
+        setAllowGroup(s?.allowGroupBooking === true);
         setIncludesWA(subRes.data.subscription?.plan?.includesReminders === true);
       })
       .catch(() => {})
@@ -127,6 +133,20 @@ export default function TabConfig() {
     }
   };
 
+  const handleGroupSubmit = async (e) => {
+    e.preventDefault();
+    setGroupMsg('');
+    setGroupLoading(true);
+    try {
+      await api.put(`/shops/${shop._id}`, { allowGroupBooking: allowGroup });
+      setGroupMsg('Preferencia guardada');
+    } catch {
+      setGroupMsg('Error guardando preferencia');
+    } finally {
+      setGroupLoading(false);
+    }
+  };
+
   const handlePwChange = (e) => setPwForm((p) => ({ ...p, [e.target.name]: e.target.value }));
 
   const handlePwSubmit = async (e) => {
@@ -195,6 +215,29 @@ export default function TabConfig() {
       </div>
 
       {/* WhatsApp deshabilitado — secciones ocultas temporalmente */}
+
+      {/* ── Tipo de reservas ── */}
+      <h3 style={{ marginTop: '28px' }}>Tipo de reservas</h3>
+      <p className="wa-subtitle">Definí si tus clientes pueden reservar turnos en grupo desde el booking.</p>
+      <form className="admin-form" onSubmit={handleGroupSubmit}>
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={allowGroup}
+            onChange={(e) => { setAllowGroup(e.target.checked); setGroupMsg(''); }}
+          />
+          Permitir reservas en grupo
+        </label>
+        <small className="field-hint">
+          {allowGroup
+            ? 'Los clientes pueden reservar turnos consecutivos para varias personas.'
+            : 'Solo se permiten reservas individuales. La opción grupo aparecerá deshabilitada en el booking.'}
+        </small>
+        {groupMsg && <p className="success-text">{groupMsg}</p>}
+        <button type="submit" className="btn-confirm" disabled={groupLoading}>
+          {groupLoading ? 'Guardando...' : 'Guardar'}
+        </button>
+      </form>
 
       {/* ── Contraseña ── */}
       <h3 style={{ marginTop: '28px' }}>Cambiar mi clave</h3>
