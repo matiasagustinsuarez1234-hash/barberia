@@ -51,6 +51,7 @@ export async function sendReminderEmail({ to, clientName, shopName, activity, ba
       subject: `Recordatorio — Hoy a las ${time} en ${shopName}`,
       html,
     });
+    console.log(`[Email] Recordatorio enviado a ${to} (${clientName}) — ${shopName} ${date} ${time}`);
     return 'sent';
   } catch (e) {
     console.warn(`[Email] Error enviando a ${to}:`, e.message);
@@ -98,6 +99,7 @@ export async function sendConfirmationEmail({ to, clientName, shopName, activity
       subject: `Turno confirmado — ${date} a las ${time} en ${shopName}`,
       html,
     });
+    console.log(`[Email] Confirmación enviada a ${to} (${clientName}) — ${shopName} ${date} ${time}`);
     return 'sent';
   } catch (e) {
     console.warn(`[Email] Error enviando confirmación a ${to}:`, e.message);
