@@ -46,7 +46,7 @@ export async function sendReminderEmail({ to, clientName, shopName, activity, ba
 
   try {
     await transporter.sendMail({
-      from: `"${shopName}" <${process.env.SMTP_USER}>`,
+      from: `"${shopName}" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
       to,
       subject: `Recordatorio — Hoy a las ${time} en ${shopName}`,
       html,
@@ -93,7 +93,7 @@ export async function sendConfirmationEmail({ to, clientName, shopName, activity
 
   try {
     await transporter.sendMail({
-      from: `"${shopName}" <${process.env.SMTP_USER}>`,
+      from: `"${shopName}" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
       to,
       subject: `Turno confirmado — ${date} a las ${time} en ${shopName}`,
       html,
