@@ -1,1 +1,1 @@
-ssh -i barberiaServer.pem ubuntu@gestionturnos.duckdns.org
+ssh -i barberiaServer.pem ubuntu@acc.gestionturnos.app

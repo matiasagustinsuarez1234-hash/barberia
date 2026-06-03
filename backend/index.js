@@ -65,7 +65,11 @@ const api = async () => {
   startReminderJob();
 
   server.listen(API_PORT, () => {
+    const now = new Date();
+    const utc = now.toISOString().replace('T', ' ').substring(0, 19);
+    const ar = now.toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
     console.log(`Servidor backend barberia en http://localhost:${API_PORT}`);
+    console.log(`[Arranque] ${utc} UTC | ${ar} AR`);
   });
 };
 

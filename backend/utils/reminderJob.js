@@ -96,11 +96,10 @@ export async function runReminders() {
 }
 
 export function startReminderJob() {
-  // Cron diario a las 7:30 hora Argentina (UTC-3)
-  cron.schedule('30 10 * * *', () => {
-    console.log('[Recordatorios] Cron 7:30 AR — iniciando envío throttleado...');
+  cron.schedule('0 8 * * *', () => {
+    console.log('[Recordatorios] Cron 8:00 AR — iniciando envío throttleado...');
     runReminders().catch((err) => console.error('[Recordatorios] Error en cron:', err));
-  });
+  }, { timezone: 'America/Argentina/Buenos_Aires' });
 
-  console.log('[Recordatorios] Cron programado para las 7:30 (Buenos Aires).');
+  console.log('[Recordatorios] Cron programado para las 8:00 (Buenos Aires).');
 }
