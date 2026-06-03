@@ -1,0 +1,43 @@
+;;
+;; Domain:     gestionturnos.app.
+;; Exported:   2026-06-03 02:15:31
+;;
+;; This file is intended for use for informational and archival
+;; purposes ONLY and MUST be edited before use on a production
+;; DNS server.  In particular, you must:
+;;   -- update the SOA record with the correct authoritative name server
+;;   -- update the SOA record with the contact e-mail address information
+;;   -- update the NS record(s) with the authoritative name servers for this domain.
+;;
+;; For further information, please consult the BIND documentation
+;; located on the following website:
+;;
+;; http://www.isc.org/
+;;
+;; And RFC 1035:
+;;
+;; http://www.ietf.org/rfc/rfc1035.txt
+;;
+;; Please note that we do NOT offer technical support for any use
+;; of this zone data, the BIND name server, or any other third-party
+;; DNS software.
+;;
+;; Use at your own risk.
+;; SOA Record
+gestionturnos.app	3600	IN	SOA	harley.ns.cloudflare.com. dns.cloudflare.com. 2053211953 10000 2400 604800 3600
+
+;; NS Records
+gestionturnos.app.	86400	IN	NS	harley.ns.cloudflare.com.
+gestionturnos.app.	86400	IN	NS	olga.ns.cloudflare.com.
+
+;; A Records
+gestionturnos.app.	1	IN	A	3.150.12.101 ; cf_tags=cf-proxied:true
+www.gestionturnos.app.	1	IN	A	3.150.12.101 ; cf_tags=cf-proxied:true
+
+;; CNAME Records
+brevo1._domainkey.gestionturnos.app.	1	IN	CNAME	b1.gestionturnos-app.dkim.brevo.com. ; cf_tags=cf-proxied:false
+brevo2._domainkey.gestionturnos.app.	1	IN	CNAME	b2.gestionturnos-app.dkim.brevo.com. ; cf_tags=cf-proxied:false
+
+;; TXT Records
+_dmarc.gestionturnos.app.	1	IN	TXT	"v=DMARC1; p=none; rua=mailto:rua@dmarc.brevo.com"
+gestionturnos.app.	1	IN	TXT	"brevo-code:3787ebc7d862e7e7329afc478945d8a6"

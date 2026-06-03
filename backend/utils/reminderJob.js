@@ -5,6 +5,11 @@ import Subscription from '../models/Subscription.js';
 import { sendPushToClient } from './pushManager.js';
 import { sendReminderEmail } from './emailManager.js';
 
+const BATCH_SIZE = 2;
+const BATCH_DELAY_MS = 5000;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export async function runReminders() {
   const today = new Date().toISOString().split('T')[0];
   console.log(`[Recordatorios] Buscando turnos pendientes para ${today}...`);
@@ -22,13 +27,11 @@ export async function runReminders() {
     return { sent: 0, errorCount: 0, skipped: 0 };
   }
 
-  // Filtrar turnos de demo
   const toSend = reservations.filter((r) => r.notes !== '[TEST]');
   const skipped = reservations.length - toSend.length;
 
   console.log(`[Recordatorios] ${toSend.length} a enviar, ${skipped} omitidos (demo).`);
 
-  // Construir mapa shopId → emailHabilitado según el plan activo
   const shopIds = [...new Set(toSend.map((r) => r.shop._id.toString()))];
   const subscriptions = await Subscription.find({ shop: { $in: shopIds } }).populate('plan', 'includesEmailNotifications');
   const emailEnabledByShop = new Map();
@@ -79,6 +82,11 @@ export async function runReminders() {
         failedList.push({ name: r.client.name, phone: r.client.phone, error: reason });
       }
     }
+
+    // Pausa cada BATCH_SIZE envíos para no saturar el servidor de mail
+    if ((i + 1) % BATCH_SIZE === 0 && i + 1 < toSend.length) {
+      await sleep(BATCH_DELAY_MS);
+    }
   }
 
   console.log(`[Recordatorios] Listo: ${sent} enviados, ${errors} errores, ${skipped} omitidos.`);
@@ -88,6 +96,11 @@ export async function runReminders() {
 }
 
 export function startReminderJob() {
-  // Cron automático deshabilitado — los avisos se envían manualmente desde el panel (TabTurnos)
-  console.log('[Recordatorios] Cron automático desactivado. Usar "Avisar a todos" desde el panel.');
+  // Cron diario a las 7:30 hora Argentina (UTC-3)
+  cron.schedule('30 10 * * *', () => {
+    console.log('[Recordatorios] Cron 7:30 AR — iniciando envío throttleado...');
+    runReminders().catch((err) => console.error('[Recordatorios] Error en cron:', err));
+  });
+
+  console.log('[Recordatorios] Cron programado para las 7:30 (Buenos Aires).');
 }
