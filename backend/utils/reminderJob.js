@@ -14,7 +14,7 @@ export async function runReminders() {
   const today = new Date().toISOString().split('T')[0];
   console.log(`[Recordatorios] Buscando turnos pendientes para ${today}...`);
 
-  const reservations = await Reservation.find({ date: today, status: 'pending' }).populate([
+  const reservations = await Reservation.find({ date: today, status: { $in: ['pending', 'confirmed'] } }).populate([
     { path: 'client', select: 'name phone email' },
     { path: 'barber', select: 'name' },
     { path: 'activity', select: 'title' },

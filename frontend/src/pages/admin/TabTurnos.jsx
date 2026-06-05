@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import api from '../../utils/api';
 
-const STATUS_CLASS = { pending: 'status-pending', confirmed: 'status-confirmed', cancelled: 'status-cancelled' };
+const STATUS_CLASS = { pending: 'status-pending', confirmed: 'status-confirmed', cancelled: 'status-cancelled', ausente: 'status-ausente' };
 
 function localToday() {
   const d = new Date();
@@ -45,7 +45,7 @@ function formatMoney(n) {
 }
 
 // ── Popup de cliente ──────────────────────────────────────────────────────────
-function ClientPopup({ res, pos, onClose, onRemind, onCancel, remindingId }) {
+function ClientPopup({ res, pos, onClose, onRemind, onCancel, onAusente, remindingId }) {
   const popupRef = useRef(null);
 
   useEffect(() => {
@@ -72,7 +72,7 @@ function ClientPopup({ res, pos, onClose, onRemind, onCancel, remindingId }) {
           📞 {res.client.phone}
         </a>
       )}
-      {res.status === 'pending' && (
+      {(res.status === 'confirmed' || res.status === 'pending') && (
         <button
           type="button"
           className="cp-remind-btn"
@@ -82,13 +82,24 @@ function ClientPopup({ res, pos, onClose, onRemind, onCancel, remindingId }) {
           {remindingId === res._id ? 'Enviando…' : '📲 Recordar turno'}
         </button>
       )}
-      <button
-        type="button"
-        className="cp-cancel-btn"
-        onClick={() => { onClose(); onCancel(res._id); }}
-      >
-        ✕ Cancelar turno
-      </button>
+      {(res.status === 'pending' || res.status === 'confirmed') && (
+        <button
+          type="button"
+          className="cp-ausente-btn"
+          onClick={() => { onClose(); onAusente(res._id); }}
+        >
+          ✗ Marcar ausente
+        </button>
+      )}
+      {res.status !== 'cancelled' && res.status !== 'ausente' && (
+        <button
+          type="button"
+          className="cp-cancel-btn"
+          onClick={() => { onClose(); onCancel(res._id); }}
+        >
+          ✕ Cancelar turno
+        </button>
+      )}
     </div>
   );
 }
@@ -229,6 +240,8 @@ export default function TabTurnos() {
     setReservations((prev) => prev.map((r) => r._id === id ? { ...r, status } : r));
   };
 
+  const handleAusente = (id) => changeStatus(id, 'ausente');
+
   const handleRemind = async (id) => {
     setRemindingId(id);
     try {
@@ -308,7 +321,7 @@ export default function TabTurnos() {
     for (let t = minStart; t < maxEnd; t += slotInterval) slots.push(minToTime(t));
   }
 
-  const pendingToday = reservations.filter((r) => r.date === selectedDate && r.status === 'pending');
+  const pendingToday = reservations.filter((r) => r.date === selectedDate && (r.status === 'confirmed' || r.status === 'pending'));
 
   const resByBarber = {};
   reservations
@@ -340,7 +353,7 @@ export default function TabTurnos() {
     todaySchedules.map((s) => {
       const bid      = s.barber?._id;
       const barberRes = reservations.filter(
-        (r) => r.date === selectedDate && r.status !== 'cancelled' && r.barber?._id === bid
+        (r) => r.date === selectedDate && r.status !== 'cancelled' && r.status !== 'ausente' && r.barber?._id === bid
       );
       const base = barberRes.reduce((sum, r) => sum + (r.activity?.price || 0), 0);
       let total  = base;
@@ -405,7 +418,7 @@ export default function TabTurnos() {
               <div key={s._id} className="mb-barber-section">
                 <div className="mb-barber-header">
                   <span>{s.barber?.name || '—'}</span>
-                  {(resByBarber[bid] || []).some((r) => r.status === 'pending') && (
+                  {(resByBarber[bid] || []).some((r) => r.status === 'confirmed' || r.status === 'pending') && (
                     <button
                       type="button"
                       className="btn-remind-barber"
@@ -467,7 +480,7 @@ export default function TabTurnos() {
                 {todaySchedules.map((s) => (
                   <th key={s._id}>
                     <span>{s.barber?.name || '—'}</span>
-                    {(resByBarber[s.barber?._id] || []).some((r) => r.status === 'pending') && (
+                    {(resByBarber[s.barber?._id] || []).some((r) => r.status === 'confirmed' || r.status === 'pending') && (
                       <button
                         type="button"
                         className="btn-remind-barber"
@@ -569,6 +582,7 @@ export default function TabTurnos() {
           pos={popupPos}
           onClose={() => setPopupRes(null)}
           onRemind={handleRemind}
+          onAusente={handleAusente}
           onCancel={handleCancelPrompt}
           remindingId={remindingId}
         />

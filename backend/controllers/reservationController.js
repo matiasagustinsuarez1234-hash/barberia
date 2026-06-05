@@ -71,7 +71,7 @@ export const createReservation = async (req, res) => {
       time,
       endTime,
       notes,
-      status: 'pending',
+      status: 'confirmed',
     });
 
     await reservation.save();
@@ -184,7 +184,7 @@ export const adminBook = async (req, res) => {
       date,
       time,
       endTime,
-      status: 'pending',
+      status: 'confirmed',
     });
 
     await reservation.save();
@@ -290,7 +290,7 @@ export const remindDay = async (req, res) => {
     const { date, barberId } = req.body;
     if (!date) return res.status(400).json({ ok: false, msg: 'Fecha requerida' });
 
-    const filter = { date, status: 'pending', notes: { $ne: '[TEST]' } };
+    const filter = { date, status: { $in: ['pending', 'confirmed'] }, notes: { $ne: '[TEST]' } };
     if (req.role !== 'superadmin') filter.shop = req.user.shop;
     if (barberId) filter.barber = barberId;
 
@@ -348,7 +348,7 @@ export const updateReservationStatus = async (req, res) => {
     const { id } = req.params;
     const { status, reason } = req.body;
 
-    const allowed = ['pending', 'confirmed', 'cancelled'];
+    const allowed = ['pending', 'confirmed', 'cancelled', 'ausente'];
     if (!allowed.includes(status)) {
       return res.status(400).json({ ok: false, msg: 'Estado invalido' });
     }
@@ -400,6 +400,78 @@ export const updateReservationStatus = async (req, res) => {
   }
 };
 
+export const multiMonthSummary = async (req, res) => {
+  try {
+    const nMonths = Math.min(parseInt(req.query.months, 10) || 6, 24);
+
+    const now = new Date();
+    const endYear = now.getFullYear();
+    const endMonth = now.getMonth() + 1;
+
+    const monthList = [];
+    for (let i = nMonths - 1; i >= 0; i--) {
+      let m = endMonth - i;
+      let y = endYear;
+      while (m <= 0) { m += 12; y--; }
+      monthList.push({ year: y, month: m, key: `${y}-${String(m).padStart(2, '0')}` });
+    }
+
+    const pad = (n) => String(n).padStart(2, '0');
+    const first = monthList[0];
+    const last  = monthList[monthList.length - 1];
+    const dateFrom = `${first.year}-${pad(first.month)}-01`;
+    const dateTo   = `${last.year}-${pad(last.month)}-${pad(new Date(last.year, last.month, 0).getDate())}`;
+
+    const shopFilter = req.role !== 'superadmin' ? { shop: req.user.shop } : {};
+
+    const reservations = await Reservation.find({
+      ...shopFilter,
+      date: { $gte: dateFrom, $lte: dateTo },
+      status: { $in: ['pending', 'confirmed'] },
+    })
+      .populate('barber', 'name surchargeType surchargeValue')
+      .populate('activity', 'price durationMinutes')
+      .populate('additionalActivities', 'price durationMinutes');
+
+    const byBarber = {};
+    for (const r of reservations) {
+      if (!r.barber) continue;
+      const bid      = r.barber._id.toString();
+      const monthKey = r.date.substring(0, 7);
+
+      if (!byBarber[bid]) byBarber[bid] = { name: r.barber.name, months: {} };
+      if (!byBarber[bid].months[monthKey]) byBarber[bid].months[monthKey] = { count: 0, minutes: 0, revenue: 0 };
+
+      let mins = 0;
+      if (r.time && r.endTime) {
+        const [sh, sm] = r.time.split(':').map(Number);
+        const [eh, em] = r.endTime.split(':').map(Number);
+        mins = (eh * 60 + em) - (sh * 60 + sm);
+      } else {
+        mins = (r.activity?.durationMinutes || 0)
+          + (r.additionalActivities || []).reduce((a, x) => a + (x.durationMinutes || 0), 0);
+      }
+
+      const basePrice = (r.activity?.price || 0)
+        + (r.additionalActivities || []).reduce((a, x) => a + (x.price || 0), 0);
+      let total = basePrice;
+      const { surchargeType, surchargeValue } = r.barber;
+      if (surchargeType === 'percent') total += basePrice * (surchargeValue / 100);
+      else if (surchargeType === 'fixed') total += surchargeValue;
+
+      byBarber[bid].months[monthKey].count   += 1;
+      byBarber[bid].months[monthKey].minutes += mins;
+      byBarber[bid].months[monthKey].revenue += total;
+    }
+
+    const barbers = Object.values(byBarber).sort((a, b) => a.name.localeCompare(b.name));
+    res.json({ ok: true, months: monthList.map((m) => m.key), barbers });
+  } catch (error) {
+    console.error('multiMonthSummary error:', error);
+    res.status(500).json({ ok: false, msg: 'Error generando resumen' });
+  }
+};
+
 export const monthlySummary = async (req, res) => {
   try {
     const { year, month } = req.query;
@@ -416,7 +488,7 @@ export const monthlySummary = async (req, res) => {
     const reservations = await Reservation.find({
       ...shopFilter,
       date: { $gte: dateFrom, $lte: dateTo },
-      status: { $ne: 'cancelled' },
+      status: { $in: ['pending', 'confirmed'] },
     })
       .populate('barber', 'name surchargeType surchargeValue')
       .populate('activity', 'title price durationMinutes')

@@ -985,12 +985,24 @@
       border-left-color: #c0392b;
       opacity: 0.55;
     }
+
+    &.status-ausente {
+      background: #fffbeb;
+      border-left-color: #d97706;
+
+      .sg-client   { text-decoration: line-through; color: #92400e; }
+      .sg-activity { text-decoration: line-through; color: #b45309; }
+    }
   }
 
   .sg-cont {
-    background: #fef3e2;               // pendiente: naranja
+    background: #fef3e2;
     border-left: 3px solid #e07b00;
 
+    &.status-ausente {
+      background: #fffbeb;
+      border-left-color: #d97706;
+    }
   }
 
   // Layout de la celda ocupada — dos líneas
@@ -1024,7 +1036,7 @@
 
   .sg-activity {
     font-size: 0.70rem;
-    color: #888;
+    color: #555;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -1177,6 +1189,21 @@
 
     &:hover    { background: #155e39; }
     &:disabled { opacity: 0.55; cursor: not-allowed; }
+  }
+
+  .cp-ausente-btn {
+    background: transparent;
+    color: #6b7280;
+    border: 1px solid #9ca3af;
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 6px;
+
+    &:hover { background: #f3f4f6; color: #374151; }
   }
 
   .cp-cancel-btn {

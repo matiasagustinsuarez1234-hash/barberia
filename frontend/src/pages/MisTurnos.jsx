@@ -52,7 +52,7 @@ export default function MisTurnos() {
                 <strong>{r.activity?.title}</strong> con <strong>{r.barber?.name}</strong>
                 {r.activity?.price && <span className="price-tag">${r.activity.price.toLocaleString('es-AR')}</span>}
               </div>
-              {r.status === 'pending' && (
+              {(r.status === 'confirmed' || r.status === 'pending') && (
                 <button className="btn-cancel" type="button" onClick={() => cancelar(r._id)}>
                   Cancelar turno
                 </button>

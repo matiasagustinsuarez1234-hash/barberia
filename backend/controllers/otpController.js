@@ -194,7 +194,7 @@ async function _createReservation({ client, shopSlug, barberId, activityId, addi
     time,
     endTime,
     notes: notes || '',
-    status: 'pending',
+    status: 'confirmed',
   });
 
   const extraReservations = [];
@@ -211,7 +211,7 @@ async function _createReservation({ client, shopSlug, barberId, activityId, addi
         time: member.time,
         endTime: minutesToTime(timeToMinutes(member.time) + totalDuration),
         notes: memberNotes,
-        status: 'pending',
+        status: 'confirmed',
       });
       extraReservations.push(r);
     }

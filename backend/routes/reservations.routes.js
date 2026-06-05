@@ -1,12 +1,13 @@
 ﻿import express from 'express';
 import { validateJWT } from '../middlewares/validateJWT.js';
-import { getReservations, createReservation, updateReservationStatus, sendReminder, adminBook, remindDay, monthlySummary } from '../controllers/reservationController.js';
+import { getReservations, createReservation, updateReservationStatus, sendReminder, adminBook, remindDay, monthlySummary, multiMonthSummary } from '../controllers/reservationController.js';
 
 const router = express.Router();
 router.use(validateJWT);
 
 router.get('/', getReservations);
 router.get('/monthly-summary', monthlySummary);
+router.get('/multi-month-summary', multiMonthSummary);
 router.post('/admin-book', adminBook);
 router.post('/remind-day', remindDay);
 router.post('/', createReservation);
