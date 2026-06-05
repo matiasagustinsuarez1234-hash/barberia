@@ -399,3 +399,65 @@ export const updateReservationStatus = async (req, res) => {
     res.status(500).json({ ok: false, msg: 'Error actualizando turno' });
   }
 };
+
+export const monthlySummary = async (req, res) => {
+  try {
+    const { year, month } = req.query;
+    if (!year || !month) return res.status(400).json({ ok: false, msg: 'Faltan year y month' });
+
+    const y = parseInt(year, 10);
+    const m = parseInt(month, 10); // 1-12
+    const pad = (n) => String(n).padStart(2, '0');
+    const dateFrom = `${y}-${pad(m)}-01`;
+    const dateTo   = `${y}-${pad(m)}-${pad(new Date(y, m, 0).getDate())}`;
+
+    const shopFilter = req.role !== 'superadmin' ? { shop: req.user.shop } : {};
+
+    const reservations = await Reservation.find({
+      ...shopFilter,
+      date: { $gte: dateFrom, $lte: dateTo },
+      status: { $ne: 'cancelled' },
+    })
+      .populate('barber', 'name surchargeType surchargeValue')
+      .populate('activity', 'title price durationMinutes')
+      .populate('additionalActivities', 'price durationMinutes');
+
+    const byBarber = {};
+    for (const r of reservations) {
+      const bid  = r.barber?._id?.toString() || 'sin_barbero';
+      const name = r.barber?.name || 'Sin profesional';
+      if (!byBarber[bid]) byBarber[bid] = { name, count: 0, minutes: 0, revenue: 0 };
+
+      // Duración: preferir endTime - time, sino suma de actividades
+      let mins = 0;
+      if (r.time && r.endTime) {
+        const [sh, sm] = r.time.split(':').map(Number);
+        const [eh, em] = r.endTime.split(':').map(Number);
+        mins = (eh * 60 + em) - (sh * 60 + sm);
+      } else {
+        mins = (r.activity?.durationMinutes || 0)
+          + (r.additionalActivities || []).reduce((acc, a) => acc + (a.durationMinutes || 0), 0);
+      }
+
+      // Precio base
+      const basePrice = (r.activity?.price || 0)
+        + (r.additionalActivities || []).reduce((acc, a) => acc + (a.price || 0), 0);
+
+      // Recargo del barbero
+      let total = basePrice;
+      const { surchargeType, surchargeValue } = r.barber || {};
+      if (surchargeType === 'percent') total += basePrice * (surchargeValue / 100);
+      else if (surchargeType === 'fixed') total += surchargeValue;
+
+      byBarber[bid].count   += 1;
+      byBarber[bid].minutes += mins;
+      byBarber[bid].revenue += total;
+    }
+
+    const summary = Object.values(byBarber).sort((a, b) => a.name.localeCompare(b.name));
+    res.json({ ok: true, summary });
+  } catch (error) {
+    console.error('monthlySummary error:', error);
+    res.status(500).json({ ok: false, msg: 'Error generando resumen' });
+  }
+};

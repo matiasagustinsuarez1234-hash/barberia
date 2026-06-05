@@ -16,9 +16,10 @@ import TabQR from './admin/TabQR';
 import TabWhatsAppCentral from './admin/TabWhatsAppCentral';
 import TabWhatsApp from './admin/TabWhatsApp';
 import TabRecordatorios from './admin/TabRecordatorios';
+import TabResumen from './admin/TabResumen';
 
 const SUPER_TABS = ['Empresas', 'Admins', 'Planes', 'Suscripciones', 'Recordatorios'];
-const BASE_SHOP_TABS = ['Turnos', 'Profesionales', 'Actividades', 'Horarios', 'Dias Cerrados', 'Clientes', 'Configuracion', 'QR'];
+const BASE_SHOP_TABS = ['Turnos', 'Resumen', 'Profesionales', 'Actividades', 'Horarios', 'Dias Cerrados', 'Clientes', 'Configuracion', 'QR'];
 
 export default function AdminPanel() {
   const { role, shopName } = useAuth();
@@ -68,6 +69,7 @@ export default function AdminPanel() {
         ) : (
           <>
             {tab === 'Turnos' && <TabTurnos />}
+            {tab === 'Resumen' && <TabResumen />}
             {tab === 'Profesionales' && <TabBarberos />}
             {tab === 'Actividades' && <TabActividades />}
             {tab === 'Horarios' && <TabHorarios />}
