@@ -9,14 +9,14 @@ export const getBarbers = async (req, res) => {
     const barbers = await Barber.find(filter).sort('name');
     res.json({ ok: true, barbers });
   } catch (error) {
-    res.status(500).json({ ok: false, msg: 'Error obteniendo barberos' });
+    res.status(500).json({ ok: false, msg: 'Error obteniendo profesionales' });
   }
 };
 
 export const createBarber = async (req, res) => {
   try {
     if (req.userType !== 'admin') {
-      return res.status(403).json({ ok: false, msg: 'Solo administradores pueden crear barberos' });
+      return res.status(403).json({ ok: false, msg: 'Solo administradores pueden crear profesionales' });
     }
     const { name, specialties, whatsapp, shop } = req.body;
     const shopId = shop || req.user.shop;
@@ -33,7 +33,7 @@ export const createBarber = async (req, res) => {
     await barber.save();
     res.status(201).json({ ok: true, barber });
   } catch (error) {
-    res.status(500).json({ ok: false, msg: 'Error creando barbero' });
+    res.status(500).json({ ok: false, msg: 'Error creando profesional' });
   }
 };
 
@@ -43,11 +43,11 @@ export const updateBarber = async (req, res) => {
     const data = req.body;
     const barber = await Barber.findByIdAndUpdate(id, data, { new: true });
     if (!barber) {
-      return res.status(404).json({ ok: false, msg: 'Barbero no encontrado' });
+      return res.status(404).json({ ok: false, msg: 'Profesional no encontrado' });
     }
     res.json({ ok: true, barber });
   } catch (error) {
-    res.status(500).json({ ok: false, msg: 'Error actualizando barbero' });
+    res.status(500).json({ ok: false, msg: 'Error actualizando profesional' });
   }
 };
 
@@ -55,17 +55,17 @@ export const deleteBarber = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const pendingCount = await Reservation.countDocuments({ barber: id, status: 'pending' });
+    const pendingCount = await Reservation.countDocuments({ barber: id, status: 'confirmed', date: { $gt: new Date() } });
     if (pendingCount > 0) {
       return res.status(409).json({
         ok: false,
-        msg: `No se puede eliminar el barbero porque tiene ${pendingCount} turno${pendingCount > 1 ? 's' : ''} pendiente${pendingCount > 1 ? 's' : ''}.`,
+        msg: `No se puede eliminar el profesional porque tiene ${pendingCount} turno${pendingCount > 1 ? 's' : ''} pendiente${pendingCount > 1 ? 's' : ''}.`,
       });
     }
 
     await Barber.findByIdAndDelete(id);
-    res.json({ ok: true, msg: 'Barbero eliminado' });
+    res.json({ ok: true, msg: 'Profesional eliminado' });
   } catch (error) {
-    res.status(500).json({ ok: false, msg: 'Error eliminando barbero' });
+    res.status(500).json({ ok: false, msg: 'Error eliminando Profesional' });
   }
 };

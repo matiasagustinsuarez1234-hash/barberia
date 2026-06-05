@@ -1,43 +1,209 @@
-;;
-;; Domain:     gestionturnos.app.
-;; Exported:   2026-06-03 02:15:31
-;;
-;; This file is intended for use for informational and archival
-;; purposes ONLY and MUST be edited before use on a production
-;; DNS server.  In particular, you must:
-;;   -- update the SOA record with the correct authoritative name server
-;;   -- update the SOA record with the contact e-mail address information
-;;   -- update the NS record(s) with the authoritative name servers for this domain.
-;;
-;; For further information, please consult the BIND documentation
-;; located on the following website:
-;;
-;; http://www.isc.org/
-;;
-;; And RFC 1035:
-;;
-;; http://www.ietf.org/rfc/rfc1035.txt
-;;
-;; Please note that we do NOT offer technical support for any use
-;; of this zone data, the BIND name server, or any other third-party
-;; DNS software.
-;;
-;; Use at your own risk.
-;; SOA Record
-gestionturnos.app	3600	IN	SOA	harley.ns.cloudflare.com. dns.cloudflare.com. 2053211953 10000 2400 604800 3600
+================================================================================
+  GESTIONTURNOS.APP — RUNBOOK OPERATIVO
+  Última actualización: 2026-06-04
+================================================================================
 
-;; NS Records
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ACCESOS RÁPIDOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  App:           https://gestionturnos.app
+  Admin:         https://gestionturnos.app/admin
+  SSH servidor:  ssh ubuntu@acc.gestionturnos.app
+                 ssh ubuntu@3.150.12.101
+
+  AWS Console:   https://678191058941.signin.aws.amazon.com/console
+                 Usuario IAM: asuarez (AdministratorAccess)
+                 Account ID: 678191058941
+
+  Cloudflare:    https://dash.cloudflare.com (cuenta aleprrr@gmail.com)
+  Brevo:         https://app.brevo.com (cuenta turnos390@gmail.com)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SERVIDOR AWS EC2
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Región:        us-east-2 (Ohio)
+  IP elástica:   3.150.12.101 (fija — no cambia al reiniciar)
+  Timezone:      America/Argentina/Buenos_Aires (-03)
+  Usuario SSH:   ubuntu
+
+  Scheduler EC2 (enciende/apaga automáticamente):
+    - Enciende: 10:00 UTC = 07:00 AR
+    - Apaga:    23:00 UTC = 20:00 AR
+
+  Firewall UFW — puertos abiertos:
+    22   SSH
+    80   HTTP
+    443  HTTPS
+    (3000 backend y 27017 MongoDB bloqueados desde exterior)
+
+  Comandos útiles en el servidor:
+    pm2 list                          → estado de procesos
+    pm2 logs barberia                 → logs en tiempo real
+    pm2 logs barberia --lines 200 --nostream  → últimas 200 líneas
+    pm2 logs barberia --lines 500 --nostream | grep -i "Recordatorio\|Email\|Error"
+    pm2 restart barberia              → reiniciar backend
+    sudo ufw status                   → ver firewall
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  DEPLOY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Desde el servidor (siempre desde ~, no desde ~/barberia):
+    cd ~ && ~/compilar.sh
+
+  Si hay conflicto en package-lock.json:
+    cd ~/barberia && git checkout backend/package-lock.json && cd ~
+    ~/compilar.sh
+
+  IMPORTANTE: Si el deploy se hace después de las 8am AR, el cron de
+  recordatorios se pierde ese día (no hay catch-up automático).
+  Usar el botón "Ejecutar ahora" en TabRecordatorios para compensar.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  VARIABLES DE ENTORNO (.env en ~/barberia/backend/)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  WHATSAPP_ENABLED=false
+  VAPID_PUBLIC_KEY=...
+  VAPID_PRIVATE_KEY=...
+  SMTP_USER=ac9405001@smtp-brevo.com
+  SMTP_PASSWORD=...                   ← caduca ~1 año, renovar en Brevo
+  SMTP_FROM=noreply@gestionturnos.app ← IMPORTANTE: usar dominio verificado
+  PUBLIC_URL=https://gestionturnos.app
+  MONGO_URI=mongodb://localhost:27017/barberia
+  JWT_SECRET=...
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MONGODB
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Base de datos: barberia
+  Puerto: 27017 (solo acceso local — bloqueado por UFW)
+  Sin autenticación habilitada (protegido por firewall)
+
+  Acceso:
+    mongosh barberia
+
+  Consultas útiles:
+    -- Turnos de hoy pendientes:
+    db.reservations.find({ date: "YYYY-MM-DD", status: { $in: ["confirmed","pending"] } })
+
+    -- Logs de recordatorios (últimos 5):
+    db.reminderlogs.find().sort({ date: -1 }).limit(5).pretty()
+
+    -- Migrar pending → confirmed (ya ejecutado el 2026-06-04, 15 registros):
+    db.reservations.updateMany({ status: "pending" }, { $set: { status: "confirmed" } })
+
+    -- Ver colecciones:
+    show collections
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  BREVO (EMAIL TRANSACCIONAL)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Cuenta:        turnos390@gmail.com en app.brevo.com
+  Plan:          Free — 300 emails/día
+  SMTP host:     smtp-relay.brevo.com:587
+  SMTP login:    ac9405001@smtp-brevo.com
+  SMTP password: ver .env en servidor (caduca ~1 año)
+  Remitente:     noreply@gestionturnos.app
+
+  ⚠️  Si los emails dan Error en Brevo:
+    1. Verificar que SMTP_FROM=noreply@gestionturnos.app en .env
+       (usar ac9405001@smtp-brevo.com como from causa errores de entrega)
+    2. Verificar que la IP del servidor esté autorizada:
+       Brevo → Configuración → Seguridad → IP autorizadas → SMTP
+       IP actual del servidor: 3.150.12.101
+    3. Si cambió la IP del servidor, agregar la nueva IP en Brevo
+
+  Renovar clave SMTP (caduca ~1 año):
+    Brevo → Configuración → SMTP y API → Claves SMTP → generar nueva
+    Actualizar SMTP_PASSWORD en .env y reiniciar PM2
+
+  Ver logs de entrega:
+    Brevo → Transaccional → Email → Logs
+    (cambiar el filtro de fecha para ver más de la última media hora)
+
+  Dominio verificado: gestionturnos.app
+    - DKIM configurado (brevo1 y brevo2 en Cloudflare)
+    - DMARC configurado
+    - Código de verificación Brevo en DNS
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  DNS — CLOUDFLARE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Cuenta: aleprrr@gmail.com en dash.cloudflare.com
+  Dominio: gestionturnos.app
+  Nameservers: harley.ns.cloudflare.com / olga.ns.cloudflare.com
+
+  Registros actuales:
+  ┌─────────────────────────────────┬───────┬──────────────────────────────────┬──────────┐
+  │ Nombre                          │ Tipo  │ Contenido                        │ Proxy    │
+  ├─────────────────────────────────┼───────┼──────────────────────────────────┼──────────┤
+  │ gestionturnos.app               │ A     │ 3.150.12.101                     │ Proxied  │
+  │ www.gestionturnos.app           │ A     │ 3.150.12.101                     │ Proxied  │
+  │ acc.gestionturnos.app           │ A     │ 3.150.12.101                     │ DNS only │
+  │ brevo1._domainkey               │ CNAME │ b1.gestionturnos-app.dkim.brevo… │ DNS only │
+  │ brevo2._domainkey               │ CNAME │ b2.gestionturnos-app.dkim.brevo… │ DNS only │
+  │ _dmarc                          │ TXT   │ v=DMARC1; p=none; rua=mailto:…   │ DNS only │
+  │ gestionturnos.app               │ TXT   │ brevo-code:3787ebc7d862e7e7…     │ DNS only │
+  └─────────────────────────────────┴───────┴──────────────────────────────────┴──────────┘
+
+  NOTAS:
+  - gestionturnos.app y www → Proxied (la IP real queda oculta detrás de Cloudflare)
+  - acc.gestionturnos.app → DNS only (apunta directo al servidor — usar para SSH)
+  - Los registros DKIM y DMARC deben ser DNS only (sin proxy)
+  - SSL: modo Full (strict) en Cloudflare
+  - Certificado: Cloudflare Origin Certificate RSA 2048, 15 años,
+    cubre gestionturnos.app y *.gestionturnos.app
+
+  Si cambia la IP del servidor:
+    1. Actualizar los 3 registros A en Cloudflare (gestionturnos.app, www, acc)
+    2. Actualizar IP autorizada en Brevo (ver sección Brevo)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SSL / CERTIFICADO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Tipo: Cloudflare Origin Certificate (no Let's Encrypt)
+  Duración: 15 años
+  Cubre: gestionturnos.app y *.gestionturnos.app
+  Ubicación en servidor: preguntar a Matías o buscar en nginx/apache config
+
+  Si hay que renovar/regenerar:
+    Cloudflare → SSL/TLS → Origin Server → Create Certificate
+    Instalar en el servidor y reconfigurar nginx
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CRON DE RECORDATORIOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Dispara: 8:00 AM Argentina = 11:00 UTC
+  Expresión: 0 8 * * * (timezone: America/Argentina/Buenos_Aires)
+
+  El cron crea un ReminderLog por cada ejecución.
+  Para ver el historial: panel superadmin → tab Recordatorios
+
+  Verificar en MongoDB:
+    db.reminderlogs.find().sort({ date: -1 }).limit(7).pretty()
+
+  Si no aparece el log del día:
+    → El servidor se reinició después de las 8am AR ese día
+    → Usar "Ejecutar ahora" en TabRecordatorios para compensar
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ZONA DNS (export Cloudflare — solo referencia)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+gestionturnos.app	3600	IN	SOA	harley.ns.cloudflare.com. dns.cloudflare.com. 2053211953 10000 2400 604800 3600
 gestionturnos.app.	86400	IN	NS	harley.ns.cloudflare.com.
 gestionturnos.app.	86400	IN	NS	olga.ns.cloudflare.com.
-
-;; A Records
 gestionturnos.app.	1	IN	A	3.150.12.101 ; cf_tags=cf-proxied:true
 www.gestionturnos.app.	1	IN	A	3.150.12.101 ; cf_tags=cf-proxied:true
-
-;; CNAME Records
 brevo1._domainkey.gestionturnos.app.	1	IN	CNAME	b1.gestionturnos-app.dkim.brevo.com. ; cf_tags=cf-proxied:false
 brevo2._domainkey.gestionturnos.app.	1	IN	CNAME	b2.gestionturnos-app.dkim.brevo.com. ; cf_tags=cf-proxied:false
-
-;; TXT Records
 _dmarc.gestionturnos.app.	1	IN	TXT	"v=DMARC1; p=none; rua=mailto:rua@dmarc.brevo.com"
 gestionturnos.app.	1	IN	TXT	"brevo-code:3787ebc7d862e7e7329afc478945d8a6"

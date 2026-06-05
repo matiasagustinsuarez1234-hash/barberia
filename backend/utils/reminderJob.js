@@ -45,6 +45,12 @@ export async function runReminders() {
 
   for (let i = 0; i < toSend.length; i++) {
     const r = toSend[i];
+
+    if (!r.activity || !r.barber || !r.client || !r.shop) {
+      console.warn(`[Recordatorios] (${i + 1}/${toSend.length}) Turno ${r._id} con referencias nulas — omitido`);
+      continue;
+    }
+
     const shopEmailEnabled = emailEnabledByShop.get(r.shop._id.toString()) ?? true;
 
     const pushPayload = {
@@ -96,7 +102,7 @@ export async function runReminders() {
 }
 
 export function startReminderJob() {
-  cron.schedule('0 8 * * *', () => {
+  cron.schedule('30 10 * * *', () => {
     const now = new Date();
     const utc = now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
     const ar = now.toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });

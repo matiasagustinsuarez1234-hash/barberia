@@ -1,4 +1,5 @@
 import Activity from '../models/Activity.js';
+import Reservation from '../models/Reservation.js';
 
 export const getActivities = async (req, res) => {
   try {
@@ -47,6 +48,15 @@ export const updateActivity = async (req, res) => {
 export const deleteActivity = async (req, res) => {
   try {
     const { id } = req.params;
+
+    const futureCount = await Reservation.countDocuments({ activity: id, status: 'confirmed', date: { $gt: new Date().toISOString().split('T')[0] } });
+    if (futureCount > 0) {
+      return res.status(409).json({
+        ok: false,
+        msg: `No se puede eliminar la actividad porque tiene ${futureCount} turno${futureCount > 1 ? 's' : ''} futuro${futureCount > 1 ? 's' : ''}.`,
+      });
+    }
+
     await Activity.findByIdAndDelete(id);
     res.json({ ok: true, msg: 'Actividad eliminada' });
   } catch (error) {

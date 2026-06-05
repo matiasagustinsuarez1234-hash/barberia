@@ -1,6 +1,8 @@
 import ClosedDay from '../models/ClosedDay.js';
 import Reservation from '../models/Reservation.js';
 import { send as waSend } from '../utils/whatsappManager.js';
+import { sendPushToClient } from '../utils/pushManager.js';
+import { sendCancellationEmail } from '../utils/emailManager.js';
 
 export const getClosedDays = async (req, res) => {
   try {
@@ -41,7 +43,7 @@ export const createClosedDay = async (req, res) => {
 
     // Cancelar todos los turnos activos de ese dia
     const reservations = await Reservation.find({ shop, date, status: { $in: ['pending', 'confirmed'] } })
-      .populate('client', 'name phone')
+      .populate('client', 'name phone email')
       .populate('barber', 'name')
       .populate('activity', 'title')
       .populate('shop', 'name slug whatsappEnabled whatsappNumber');
@@ -49,11 +51,11 @@ export const createClosedDay = async (req, res) => {
     let cancelledCount = 0;
     for (const r of reservations) {
       r.status = 'cancelled';
-      r.cancellationReason = reason || 'La barberia no atendera ese dia';
+      r.cancellationReason = reason || 'No se atiende ese dia';
       await r.save();
       cancelledCount++;
 
-      // Notificar al cliente por WhatsApp
+      // Notificar al cliente por WhatsApp, push y email
       try {
         const shopDoc = r.shop;
         if (shopDoc?.whatsappEnabled) {
@@ -70,8 +72,26 @@ export const createClosedDay = async (req, res) => {
             console.warn('[WA] Error notificando cancelacion por dia cerrado:', e.message),
           );
         }
+        Promise.all([
+          sendPushToClient(r.client.phone, {
+            title: `Turno cancelado — ${shopDoc.name}`,
+            body: `Tu turno del ${date} a las ${r.time} fue cancelado.`,
+            url: `/${shopDoc.slug || ''}/turnos`,
+          }),
+          sendCancellationEmail({
+            to: r.client.email,
+            clientName: r.client.name,
+            shopName: shopDoc.name,
+            activity: r.activity?.title,
+            barberName: r.barber?.name,
+            date,
+            time: r.time,
+            reason: r.cancellationReason,
+            shopSlug: shopDoc.slug,
+          }),
+        ]).catch((e) => console.warn('[Notify] Error enviando cancelacion por dia cerrado:', e.message));
       } catch (e) {
-        console.warn('[WA] Error preparando notificacion:', e.message);
+        console.warn('[Notify] Error preparando notificacion:', e.message);
       }
     }
 
