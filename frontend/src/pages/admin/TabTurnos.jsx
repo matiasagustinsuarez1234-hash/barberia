@@ -3,6 +3,11 @@ import api from '../../utils/api';
 
 const STATUS_CLASS = { pending: 'status-pending', confirmed: 'status-confirmed', cancelled: 'status-cancelled' };
 
+function localToday() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function addDays(dateStr, days) {
   const d = new Date(dateStr + 'T00:00:00');
   d.setDate(d.getDate() + days);
@@ -10,7 +15,7 @@ function addDays(dateStr, days) {
 }
 
 function formatDateLabel(dateStr) {
-  const today    = new Date().toISOString().split('T')[0];
+  const today    = localToday();
   const tomorrow = addDays(today, 1);
   if (dateStr === today)    return 'Hoy';
   if (dateStr === tomorrow) return 'Mañana';
@@ -181,7 +186,7 @@ export default function TabTurnos() {
   const [barbers, setBarbers]           = useState([]);
   const [activities, setActivities]     = useState([]);
   const [loading, setLoading]           = useState(true);
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(() => localToday());
   const [remindingId, setRemindingId]   = useState(null);
   const [remindingDay, setRemindingDay] = useState(false);
   const [remindingBarber, setRemindingBarber] = useState(null);
@@ -191,7 +196,7 @@ export default function TabTurnos() {
   const [bookingSlot, setBookingSlot]   = useState(null);
   const [bookingPos, setBookingPos]     = useState({ top: 0, left: 0 });
 
-  const today   = new Date().toISOString().split('T')[0];
+  const today   = localToday();
   const isToday = selectedDate === today;
 
   useEffect(() => {
