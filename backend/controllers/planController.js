@@ -28,7 +28,7 @@ export const updatePlan = async (req, res) => {
     if (req.role !== 'superadmin') {
       return res.status(403).json({ ok: false, msg: 'Solo superadmin puede editar planes' });
     }
-    const plan = await Plan.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const plan = await Plan.findByIdAndUpdate(req.params.id, req.body, { returnDocument: 'after' });
     if (!plan) return res.status(404).json({ ok: false, msg: 'Plan no encontrado' });
     res.json({ ok: true, plan });
   } catch {

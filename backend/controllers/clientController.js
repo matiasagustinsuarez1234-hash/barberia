@@ -49,7 +49,7 @@ export const updateClient = async (req, res) => {
     if (email !== undefined) update.email = email;
     if (password) update.password = bcrypt.hashSync(password, 10);
 
-    const client = await Client.findByIdAndUpdate(id, update, { new: true }).select('-password');
+    const client = await Client.findByIdAndUpdate(id, update, { returnDocument: 'after' }).select('-password');
     if (!client) return res.status(404).json({ ok: false, msg: 'Cliente no encontrado' });
     res.json({ ok: true, client });
   } catch (error) {

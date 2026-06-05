@@ -1,5 +1,10 @@
 ﻿/* Admin panel styles */
 
+.tema-swatch {
+  transition: transform 0.15s, box-shadow 0.15s;
+  &:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+}
+
 .wa-subtitle {
   color: #666;
   margin-bottom: 16px;

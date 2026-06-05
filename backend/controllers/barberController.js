@@ -41,7 +41,7 @@ export const updateBarber = async (req, res) => {
   try {
     const { id } = req.params;
     const data = req.body;
-    const barber = await Barber.findByIdAndUpdate(id, data, { new: true });
+    const barber = await Barber.findByIdAndUpdate(id, data, { returnDocument: 'after' });
     if (!barber) {
       return res.status(404).json({ ok: false, msg: 'Profesional no encontrado' });
     }

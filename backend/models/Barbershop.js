@@ -19,6 +19,7 @@ const BarbershopSchema = new mongoose.Schema({
   allowGroupBooking: { type: Boolean, default: false },
   metaWaPhoneNumberId: { type: String },
   metaWaToken: { type: String },
+  colorTema: { type: String, default: 'classic' },
   createdAt: { type: Date, default: Date.now },
 });
 

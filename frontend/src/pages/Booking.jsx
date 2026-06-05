@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import api from '../utils/api';
 import { normalizeArgPhone, normalizeArgPhoneAny } from '../utils/phoneUtils';
+import { getTheme } from '../utils/bookingThemes';
 
 // Convierte la clave pública VAPID (base64url) al formato Uint8Array que necesita el browser
 function urlBase64ToUint8Array(base64String) {
@@ -87,6 +88,7 @@ export default function Booking() {
   const [shopLogo, setShopLogo] = useState('');
   const [shopAreaCode, setShopAreaCode] = useState('11');
   const [shopAllowsGroup, setShopAllowsGroup] = useState(false);
+  const [shopColorTema, setShopColorTema] = useState('classic');
   const [shopError, setShopError] = useState('');
 
   const [activities, setActivities] = useState([]);
@@ -140,6 +142,7 @@ export default function Booking() {
         setShopName(r.data.shop.name);
         setShopAreaCode(r.data.shop.areaCode || '11');
         setShopAllowsGroup(r.data.shop.allowGroupBooking === true);
+        setShopColorTema(r.data.shop.colorTema || 'classic');
         const rawLogo = r.data.shop.logo || r.data.shop.image || '';
         setShopLogo(rawLogo ? `${API_BASE}${rawLogo}` : '');
       })
@@ -384,6 +387,15 @@ export default function Booking() {
 
   // --- Pantallas ---
 
+  const _theme = getTheme(shopColorTema);
+  const themeStyle = {
+    '--bk-fondo': _theme.fondo,
+    '--bk-comp': _theme.componentes,
+    '--bk-letras': _theme.letras,
+    background: _theme.fondo,
+    color: _theme.letras,
+  };
+
   if (shopError) {
     return <div className="app-card"><p className="error-text">{shopError}</p></div>;
   }
@@ -400,7 +412,7 @@ export default function Booking() {
     };
 
     return (
-      <div className="app-card">
+      <div className="app-card bk-theme" style={themeStyle}>
         <h1>{shopName}</h1>
         <p className="subtitle success-confirm">
           {reservations.length > 1 ? `${reservations.length} turnos reservados!` : '¡Turno reservado!'}
@@ -441,7 +453,7 @@ export default function Booking() {
   if (cancelView === 'phone') {
     const fromPush = searchParams.get('ver') === 'mis-turnos';
     return (
-      <div className="app-card">
+      <div className="app-card bk-theme" style={themeStyle}>
         {shopLogo && <img src={shopLogo} alt={shopName} className="shop-logo" />}
         <h1>{shopName}</h1>
         <p className="subtitle">{fromPush ? '📅 Tus próximos turnos' : 'Cancelar turno'}</p>
@@ -475,7 +487,7 @@ export default function Booking() {
 
   if (cancelView === 'list') {
     return (
-      <div className="app-card">
+      <div className="app-card bk-theme" style={themeStyle}>
         {shopLogo && <img src={shopLogo} alt={shopName} className="shop-logo" />}
         <h1>{shopName}</h1>
         <p className="subtitle success-confirm">📅 Tus próximos turnos</p>
@@ -506,7 +518,7 @@ export default function Booking() {
     const hasDate = !!date;
 
     return (
-      <div className="app-card">
+      <div className="app-card bk-theme" style={themeStyle}>
         {shopLogo && <img src={shopLogo} alt={shopName} className="shop-logo" />}
         <h1>{shopName || '...'}</h1>
         <p className="subtitle">Turnos Online</p>
@@ -718,14 +730,10 @@ export default function Booking() {
         <button className="btn-confirm" type="button" onClick={goToClientStep}>
           Continuar
         </button>
-        <div className="form-actions-booking" style={{ marginTop: '12px' }}>
-          <button className="btn-secondary" type="button" onClick={() => { setCancelView('phone'); setCancelMsg(''); setCancelEmail(''); }}>
-            Ver mis turnos
-          </button>
-          <button className="btn-secondary" type="button" onClick={() => { setCancelView('phone'); setCancelMsg(''); setCancelEmail(''); }}>
-            Cancelar un turno existente
-          </button>
-        </div>
+        <hr style={{ border: 'none', borderTop: '1px solid #e5e5e5', margin: '14px 0' }} />
+        <button className="btn-mis-turnos" type="button" onClick={() => { setCancelView('phone'); setCancelMsg(''); setCancelEmail(''); }}>
+          Ver mis turnos
+        </button>
       </div>
     );
   }
@@ -733,7 +741,7 @@ export default function Booking() {
   // Paso 2: datos del cliente
   if (step === 2) {
     return (
-      <div className="app-card">
+      <div className="app-card bk-theme" style={themeStyle}>
         <h1>{shopName}</h1>
         <p className="subtitle">Tus datos</p>
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../../utils/api';
 import { normalizeArgPhoneAny } from '../../utils/phoneUtils';
+import { BOOKING_THEMES } from '../../utils/bookingThemes';
 
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace('/api', '');
 
@@ -25,6 +26,11 @@ export default function TabConfig() {
   const [groupMsg, setGroupMsg]         = useState('');
   const [groupLoading, setGroupLoading] = useState(false);
 
+  // Tema de color
+  const [colorTema, setColorTema] = useState('classic');
+  const [temaMsg, setTemaMsg] = useState('');
+  const [temaLoading, setTemaLoading] = useState(false);
+
   // Logo
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
@@ -46,6 +52,7 @@ export default function TabConfig() {
         setNotifyAdmin(s?.notifyAdminOnBooking !== false);
         setNotifyClient(s?.notifyClientOnBooking !== false);
         setAllowGroup(s?.allowGroupBooking === true);
+        setColorTema(s?.colorTema || 'classic');
         setIncludesWA(subRes.data.subscription?.plan?.includesReminders === true);
       })
       .catch(() => {})
@@ -95,6 +102,20 @@ export default function TabConfig() {
       setNotifMsg('Error guardando preferencias');
     } finally {
       setNotifLoading(false);
+    }
+  };
+
+  const handleTemaSubmit = async (e) => {
+    e.preventDefault();
+    setTemaMsg('');
+    setTemaLoading(true);
+    try {
+      await api.put(`/shops/${shop._id}`, { colorTema });
+      setTemaMsg('Tema guardado');
+    } catch {
+      setTemaMsg('Error guardando tema');
+    } finally {
+      setTemaLoading(false);
     }
   };
 
@@ -213,6 +234,44 @@ export default function TabConfig() {
           </button>
         </form>
       </div>
+
+      {/* ── Tema de color del booking ── */}
+      <h3 style={{ marginTop: '28px' }}>Estilo de colores</h3>
+      <p className="wa-subtitle">Elegí la combinación de colores que verán tus clientes al reservar un turno.</p>
+      <form onSubmit={handleTemaSubmit}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', marginBottom: '14px' }}>
+          {BOOKING_THEMES.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className="tema-swatch"
+              onClick={() => { setColorTema(t.id); setTemaMsg(''); }}
+              style={{
+                background: t.fondo,
+                border: colorTema === t.id ? `3px solid ${t.componentes}` : '2px solid #ddd',
+                borderRadius: '10px',
+                padding: '10px 6px 8px',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <div style={{ display: 'flex', gap: '3px' }}>
+                <span style={{ width: 14, height: 14, borderRadius: '50%', background: t.fondo, border: '1px solid #ccc', display: 'inline-block' }} />
+                <span style={{ width: 14, height: 14, borderRadius: '50%', background: t.componentes, display: 'inline-block' }} />
+                <span style={{ width: 14, height: 14, borderRadius: '50%', background: t.letras, display: 'inline-block' }} />
+              </div>
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, color: t.letras, textAlign: 'center', lineHeight: 1.1 }}>{t.label}</span>
+            </button>
+          ))}
+        </div>
+        {temaMsg && <p className="success-text">{temaMsg}</p>}
+        <button type="submit" className="btn-confirm" disabled={temaLoading}>
+          {temaLoading ? 'Guardando...' : 'Guardar estilo'}
+        </button>
+      </form>
 
       {/* WhatsApp deshabilitado — secciones ocultas temporalmente */}
 

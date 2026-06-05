@@ -35,7 +35,7 @@ export const createActivity = async (req, res) => {
 export const updateActivity = async (req, res) => {
   try {
     const { id } = req.params;
-    const activity = await Activity.findByIdAndUpdate(id, req.body, { new: true });
+    const activity = await Activity.findByIdAndUpdate(id, req.body, { returnDocument: 'after' });
     if (!activity) {
       return res.status(404).json({ ok: false, msg: 'Actividad no encontrada' });
     }

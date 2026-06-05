@@ -233,14 +233,22 @@
 }
 
 /* booking-specific overrides */
-.app-card .subtitle { margin-bottom: 8px; }
+.app-card {
+
+
+  .subtitle { margin-bottom: 8px; }
+  .btn-confirm {
+    margin-top: 20px;
+  }
+}
+
 
 .field-hint {
   display: block;
   font-size: 0.75rem;
   color: #aaa;
-  margin-top: -6px;
-  margin-bottom: 4px;
+  margin-top: 6px;
+  margin-bottom: 12px;
   padding-left: 2px;
 }
 
@@ -304,4 +312,94 @@
   font-size: 0.9rem;
   line-height: 1.8;
   text-align: left;
+}
+
+.btn-mis-turnos {
+  display: block;
+  width: auto;
+  margin: 0 auto;
+  padding: 8px 20px;
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: color 0.15s;
+  text-align: center;
+
+  &:hover { color: #333; }
+}
+
+/* ── Temas de color del booking ── */
+.bk-theme {
+  h1 { color: var(--bk-letras, #111); }
+
+  .subtitle, .section-title, .field-hint, .otp-info { color: var(--bk-letras, #888); opacity: 0.7; }
+
+  .btn-confirm {
+    background: var(--bk-comp, #111);
+    color: var(--bk-fondo, #fff);
+    &:hover:not(:disabled) { opacity: 0.85; background: var(--bk-comp, #111); }
+  }
+
+  .booking-type-btn {
+    &.active { background: var(--bk-comp, #000); color: var(--bk-fondo, #fff); }
+  }
+
+  .date-item {
+    background: var(--bk-fondo, #fff);
+    border-color: color-mix(in srgb, var(--bk-letras, #eee) 20%, transparent);
+    .date-num { color: var(--bk-letras, #111); }
+    .date-dow, .date-month { color: color-mix(in srgb, var(--bk-letras, #aaa) 55%, transparent); }
+
+    &:hover:not(.disabled) {
+      background: color-mix(in srgb, var(--bk-letras, #000) 8%, var(--bk-fondo, #fff));
+      border-color: color-mix(in srgb, var(--bk-letras, #bbb) 40%, transparent);
+    }
+
+    &.selected {
+      background: var(--bk-comp, #000);
+      border-color: var(--bk-comp, #000);
+      .date-dow, .date-num, .date-month { color: var(--bk-fondo, #fff); opacity: 1; }
+    }
+  }
+
+  .time-slot {
+    &:hover { border-color: var(--bk-comp, #000); }
+    &.selected { background: var(--bk-comp, #000); border-color: var(--bk-comp, #000); color: var(--bk-fondo, #fff); }
+  }
+
+  .card-opt {
+    background: var(--bk-fondo, #fff);
+    color: var(--bk-letras, #111);
+    &.selected {
+      border: 2px solid var(--bk-comp, #000);
+      background: var(--bk-fondo, #fff);
+      color: var(--bk-letras, #111);
+    }
+    &:hover:not(.selected) { border-color: var(--bk-comp, #ccc); opacity: 0.85; }
+  }
+
+  .form-actions-booking {
+    .btn-secondary { background: transparent; border: 1px solid var(--bk-comp, #ddd); color: var(--bk-letras, #333); }
+  }
+
+  .btn-mis-turnos {
+    color: color-mix(in srgb, var(--bk-letras, #888) 55%, transparent);
+    &:hover { color: var(--bk-letras, #333); }
+  }
+
+  input.input-text, textarea.input-text {
+    background: var(--bk-fondo, #fff);
+    color: var(--bk-letras, #111);
+    border-color: color-mix(in srgb, var(--bk-letras, #ddd) 25%, transparent);
+  }
+
+  .reservation-summary {
+    background: color-mix(in srgb, var(--bk-comp, #000) 6%, var(--bk-fondo, #fff));
+    border-color: color-mix(in srgb, var(--bk-comp, #000) 15%, transparent);
+    color: var(--bk-letras, #111);
+  }
 }
