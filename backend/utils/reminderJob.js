@@ -97,7 +97,10 @@ export async function runReminders() {
 
 export function startReminderJob() {
   cron.schedule('0 8 * * *', () => {
-    console.log('[Recordatorios] Cron 8:00 AR — iniciando envío throttleado...');
+    const now = new Date();
+    const utc = now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+    const ar = now.toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
+    console.log(`[Recordatorios] Cron 8:00 AR — ${utc} | ${ar} — iniciando envío...`);
     runReminders().catch((err) => console.error('[Recordatorios] Error en cron:', err));
   }, { timezone: 'America/Argentina/Buenos_Aires' });
 

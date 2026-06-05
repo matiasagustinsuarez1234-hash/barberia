@@ -759,7 +759,7 @@ export default function Booking() {
           />
           <small className="field-hint">Ingresa tu numero con caracteristica {shopAreaCode} — el codigo de pais se agrega automaticamente.</small>
 
-          <div className="section-title">Email (opcional)</div>
+          <div className="section-title">Email <span style={{ fontWeight: 400, fontSize: '0.85em', color: '#6b7280' }}>(opcional)</span></div>
           <input
             className="input-text"
             type="email"
@@ -767,6 +767,7 @@ export default function Booking() {
             value={clientEmail}
             onChange={(e) => setClientEmail(e.target.value)}
           />
+          <small className="field-hint">Si dejás tu email te enviamos un recordatorio el día del turno.</small>
 
           {/* Integrantes del grupo */}
           {isGroup && (

@@ -20,6 +20,9 @@ export const sendOtp = async (req, res) => {
     let client = await Client.findOne({ phone });
     if (!client) {
       client = await Client.create({ name, phone, email: email || '' });
+    } else if (email && email.includes('@') && !client.email) {
+      client.email = email;
+      await client.save();
     }
 
     return res.json({ ok: true, clientExists: true });
