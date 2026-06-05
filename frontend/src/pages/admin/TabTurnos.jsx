@@ -302,9 +302,10 @@ export default function TabTurnos() {
 
   let slots = [];
   if (todaySchedules.length > 0) {
-    const minStart = Math.min(...todaySchedules.map((s) => timeToMin(s.startTime)));
-    const maxEnd   = Math.max(...todaySchedules.map((s) => timeToMin(s.endTime)));
-    for (let t = minStart; t < maxEnd; t += 30) slots.push(minToTime(t));
+    const minStart    = Math.min(...todaySchedules.map((s) => timeToMin(s.startTime)));
+    const maxEnd      = Math.max(...todaySchedules.map((s) => timeToMin(s.endTime)));
+    const slotInterval = Math.min(...todaySchedules.map((s) => s.slotMinutes || 30));
+    for (let t = minStart; t < maxEnd; t += slotInterval) slots.push(minToTime(t));
   }
 
   const pendingToday = reservations.filter((r) => r.date === selectedDate && r.status === 'pending');
